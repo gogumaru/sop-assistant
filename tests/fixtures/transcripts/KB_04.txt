@@ -1,0 +1,25 @@
+Eskalasi dan Penanganan Insiden
+
+1. Definisi
+Insiden adalah gangguan yang mengurangi ketersediaan, keamanan, atau fungsi layanan. Tidak setiap keluhan merupakan insiden; penilaian didasarkan pada dampak nyata dan risiko.
+
+2. Tingkat Insiden
+SEV1: gangguan menyeluruh atau dugaan paparan data sensitif. SEV2: layanan utama terdegradasi bagi banyak pengguna. SEV3: gangguan terbatas dengan alternatif operasional. SEV4: gangguan minor tanpa dampak signifikan.
+
+3. Aktivasi Eskalasi
+SEV1 harus segera dilaporkan kepada koordinator insiden dan tim teknis piket, termasuk di luar jam layanan. SEV2 dieskalasikan kepada penanggung jawab teknis paling lambat 30 menit sejak klasifikasi.
+
+4. Pembagian Peran
+Koordinator insiden memimpin keputusan dan komunikasi lintas tim. PIC teknis melakukan diagnosis serta pemulihan. Petugas layanan menyampaikan pembaruan pelanggan berdasarkan informasi yang sudah diverifikasi.
+
+5. Komunikasi Insiden
+Untuk SEV1, pembaruan status internal dibuat setiap 20 menit. Komunikasi pelanggan menggunakan ringkasan dampak, langkah mitigasi, dan waktu pembaruan berikutnya tanpa mengungkap detail keamanan sensitif.
+
+6. Penanganan Keamanan
+Indikasi kebocoran data harus segera dibatasi aksesnya dan dicatat melalui kanal keamanan. Jangan mengunggah contoh data pribadi ke tiket umum. Penilaian dampak dilakukan oleh pihak yang berwenang.
+
+7. Pemulihan
+Status pulih ditetapkan setelah fungsi utama diverifikasi. Penyelesaian insiden tidak otomatis menutup semua tiket pelanggan yang terkait; tiap tiket tetap mengikuti aturan penutupan tiket.
+
+8. Evaluasi Pascainsiden
+Untuk SEV1 dan SEV2, tim menyusun tinjauan pascainsiden paling lambat lima hari kerja setelah pemulihan, meliputi kronologi, akar masalah yang diketahui, tindakan, dan langkah pencegahan.

@@ -1,0 +1,25 @@
+Penanganan Tiket Layanan
+
+1. Tujuan
+Panduan ini digunakan oleh petugas layanan untuk menerima, mengelompokkan, menangani, dan menutup tiket pelanggan secara konsisten. Setiap tiket wajib memiliki nomor referensi dan waktu pencatatan.
+
+2. Pencatatan Tiket
+Catat identitas pelanggan, kanal laporan, ringkasan masalah, waktu kejadian, dampak layanan, dan bukti pendukung. Apabila informasi belum lengkap, tiket tetap dibuat dengan status Menunggu Informasi.
+
+3. Tingkat Prioritas
+P1 Kritis: layanan utama tidak dapat digunakan oleh banyak pelanggan. P2 Tinggi: fungsi penting terganggu dengan solusi sementara terbatas. P3 Sedang: gangguan parsial yang masih memiliki alternatif. P4 Rendah: pertanyaan umum atau permintaan administratif.
+
+4. Target Respons Awal
+P1: 15 menit; P2: 1 jam; P3: 4 jam kerja; P4: 1 hari kerja. Respons awal berarti petugas telah mengakui laporan dan menyampaikan langkah berikutnya, bukan bahwa masalah sudah selesai.
+
+5. Penugasan
+Petugas layanan melakukan triase dan menetapkan penanggung jawab. Tim teknis menangani gangguan sistem, sedangkan tim administrasi menangani perubahan data dan permintaan dokumen.
+
+6. Status Tiket
+Status yang digunakan adalah Baru, Diproses, Menunggu Pelanggan, Menunggu Pihak Ketiga, Selesai, dan Ditutup. Perubahan status harus disertai catatan aktivitas.
+
+7. Penutupan
+Tiket dapat ditutup setelah penyelesaian dikonfirmasi pelanggan atau setelah dua hari kerja tanpa tanggapan sejak notifikasi selesai, kecuali tiket P1 yang memerlukan konfirmasi eksplisit.
+
+8. Catatan Khusus
+Apabila ada indikasi kebocoran data, jangan mencantumkan informasi rahasia dalam catatan tiket. Ikuti kebijakan insiden dan informasikan koordinator layanan.

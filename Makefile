@@ -6,7 +6,7 @@ UV := uv run
 UV_HTTP_TIMEOUT ?= 120
 export UV_HTTP_TIMEOUT
 
-.PHONY: help setup models qdrant-up qdrant-down check-pdfs smoke ingest test calibrate eval demo requirements
+.PHONY: help setup models qdrant-up qdrant-down check-pdfs smoke extract before-after ingest test calibrate eval demo requirements
 
 help: ## Tampilkan daftar perintah
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  %-13s %s\n", $$1, $$2}'
@@ -30,6 +30,12 @@ check-pdfs: ## M0: cek PDF mana yang punya text layer dan mana yang perlu OCR
 
 smoke: ## M0: cek Tesseract, Qdrant, bge-m3, dan Ollama siap
 	$(UV) python scripts/smoke.py
+
+extract: ## M1: ekstrak PDF ke data/chunks.jsonl (tanpa indexing)
+	$(UV) python -m sop_assistant.extract
+
+before-after: ## M1: tulis docs/two_column_before_after.md untuk README
+	$(UV) python scripts/before_after.py
 
 ingest: ## M2: ekstrak PDF, tulis data/chunks.jsonl, index ke Qdrant
 	$(UV) sop ingest
