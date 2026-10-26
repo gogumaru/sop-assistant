@@ -33,3 +33,6 @@ packages = ["src/sop_assistant"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["integration: butuh Qdrant aktif dan model bge-m3"]
+# Binding SWIG pymupdf di Python 3.12; tidak berbahaya.
+filterwarnings = ["ignore:builtin type .* has no __module__ attribute:DeprecationWarning"]

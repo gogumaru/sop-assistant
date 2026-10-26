@@ -6,7 +6,7 @@ UV := uv run
 UV_HTTP_TIMEOUT ?= 120
 export UV_HTTP_TIMEOUT
 
-.PHONY: help setup models qdrant-up qdrant-down check-pdfs smoke extract before-after ingest test calibrate eval demo requirements
+.PHONY: help setup models qdrant-up qdrant-down check-pdfs smoke extract before-after ingest search test test-unit calibrate eval demo requirements
 
 help: ## Tampilkan daftar perintah
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  %-13s %s\n", $$1, $$2}'
@@ -40,8 +40,14 @@ before-after: ## M1: tulis docs/two_column_before_after.md untuk README
 ingest: ## M2: ekstrak PDF, tulis data/chunks.jsonl, index ke Qdrant
 	$(UV) sop ingest
 
-test: ## Jalankan pytest
+search: ## M2: debug retrieval, contoh: make search Q="brp lama sev2 hrs dieskalasi"
+	$(UV) sop search "$(Q)"
+
+test: ## Jalankan semua test (integrasi di-skip jika Qdrant mati)
 	$(UV) pytest -q
+
+test-unit: ## Test tanpa Qdrant dan model embedding
+	$(UV) pytest -q -m "not integration"
 
 calibrate: ## M4: hitung threshold abstain dari golden set
 	$(UV) python eval/calibrate.py
