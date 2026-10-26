@@ -1,0 +1,16 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.19.2
+    container_name: sop-qdrant
+    ports:
+      # Hanya bind ke localhost: data SOP tidak diekspos ke jaringan.
+      - "127.0.0.1:6333:6333" # REST + dashboard (http://localhost:6333/dashboard)
+      - "127.0.0.1:6334:6334" # gRPC
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    environment:
+      QDRANT__TELEMETRY_DISABLED: "true"
+    restart: unless-stopped
+
+volumes:
+  qdrant_storage:

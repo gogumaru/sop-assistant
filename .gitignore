@@ -1,0 +1,18 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Rahasia & konfigurasi lokal
+.env
+
+# Index Qdrant mode embedded (bisa dibangun ulang dengan make ingest)
+data/qdrant_local/
+
+# macOS
+.DS_Store
+
+# Catatan: data/chunks.jsonl SENGAJA di-commit agar reviewer bisa memeriksa
+# hasil ekstraksi tanpa memasang Tesseract.
