@@ -1,0 +1,36 @@
+# Istilah tingkat yang bisa merujuk ke dua skala berbeda: prioritas tiket (P1-P4)
+# dan tingkat insiden (SEV1-SEV4).
+#
+# Dicocokkan per FRASA, bukan kata tunggal: "sedang" juga berarti "currently"
+# ("tiket yang sedang diproses") dan "tinggi" adalah kata umum.
+# Jika pertanyaan sudah memuat token eksplisit (P1-P4 / SEV1-SEV4), tidak ada ambiguitas.
+# Glossary ini manual; istilah di luar daftar tidak terdeteksi (lihat README, Keterbatasan).
+
+explicit_level_pattern: '\b(p\s?[1-4]|sev\s?[1-4])\b'
+
+scales:
+  P:
+    name: prioritas tiket
+    doc_ids: [KB_01, KB_03]
+  SEV:
+    name: tingkat insiden
+    doc_ids: [KB_04]
+
+# token: wajib muncul di klaim yang menyitasi dokumen skala tersebut (lihat guards.uncovered_scales).
+ambiguous_terms:
+  - terms: ["kritis", "gangguan kritis", "paling parah", "gangguan berat", "paling darurat"]
+    candidates:
+      - {scale: P, token: P1, level: "P1 Kritis", note: "prioritas tiket, KB_01 §3"}
+      - {scale: SEV, token: SEV1, level: "SEV1", note: "tingkat insiden, KB_04 §2"}
+  - terms: ["prioritas tinggi", "gangguan tinggi", "tingkat tinggi", "urgensi tinggi"]
+    candidates:
+      - {scale: P, token: P2, level: "P2 Tinggi", note: "prioritas tiket, KB_01 §3"}
+      - {scale: SEV, token: SEV2, level: "SEV2", note: "tingkat insiden, KB_04 §2"}
+  - terms: ["prioritas sedang", "gangguan sedang", "tingkat sedang"]
+    candidates:
+      - {scale: P, token: P3, level: "P3 Sedang", note: "prioritas tiket, KB_01 §3"}
+      - {scale: SEV, token: SEV3, level: "SEV3", note: "tingkat insiden, KB_04 §2"}
+  - terms: ["prioritas rendah", "gangguan rendah", "gangguan ringan", "tingkat rendah"]
+    candidates:
+      - {scale: P, token: P4, level: "P4 Rendah", note: "prioritas tiket, KB_01 §3"}
+      - {scale: SEV, token: SEV4, level: "SEV4", note: "tingkat insiden, KB_04 §2"}

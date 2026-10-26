@@ -5,6 +5,7 @@ from __future__ import annotations
 from functools import lru_cache
 
 from huggingface_hub import snapshot_download
+from huggingface_hub.errors import LocalEntryNotFoundError
 from qdrant_client import models
 
 from sop_assistant.config import settings
@@ -18,8 +19,12 @@ def model_path() -> str:
 
     Path folder diberikan ke FlagEmbedding, bukan nama repo, karena dengan nama repo
     FlagEmbedding mengunduh sendiri seluruh isi repo termasuk file ONNX.
+    Cache lokal dicek dulu tanpa jaringan; HF Hub hanya dihubungi jika model belum ada.
     """
-    return snapshot_download(settings.embed_model, ignore_patterns=MODEL_IGNORE_PATTERNS)
+    try:
+        return snapshot_download(settings.embed_model, local_files_only=True)
+    except LocalEntryNotFoundError:
+        return snapshot_download(settings.embed_model, ignore_patterns=MODEL_IGNORE_PATTERNS)
 
 
 @lru_cache(maxsize=1)

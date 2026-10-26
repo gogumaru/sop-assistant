@@ -6,7 +6,7 @@ UV := uv run
 UV_HTTP_TIMEOUT ?= 120
 export UV_HTTP_TIMEOUT
 
-.PHONY: help setup models qdrant-up qdrant-down check-pdfs smoke extract before-after ingest search test test-unit calibrate eval demo requirements
+.PHONY: help setup models qdrant-up qdrant-down check-pdfs smoke extract before-after ingest search ask test test-unit calibrate eval demo requirements
 
 help: ## Tampilkan daftar perintah
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  %-13s %s\n", $$1, $$2}'
@@ -42,6 +42,9 @@ ingest: ## M2: ekstrak PDF, tulis data/chunks.jsonl, index ke Qdrant
 
 search: ## M2: debug retrieval, contoh: make search Q="brp lama sev2 hrs dieskalasi"
 	$(UV) sop search "$(Q)"
+
+ask: ## M3: tanya SOP, contoh: make ask Q="Berapa target respons awal untuk tiket P2?"
+	$(UV) sop ask "$(Q)"
 
 test: ## Jalankan semua test (integrasi di-skip jika Qdrant mati)
 	$(UV) pytest -q
