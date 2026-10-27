@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import asdict
+from enum import Enum
 
 import typer
 from rich.console import Console
@@ -137,6 +138,30 @@ def ask(
     if result.pii_masked:
         parts.append(f"{result.pii_masked} data sensitif disamarkan")
     console.print(f"\n[dim]{' | '.join(parts)}[/]")
+
+
+class Baseline(str, Enum):
+    full_context = "full-context"
+
+
+@app.command("eval")
+def eval_command(
+    mode: Mode = typer.Option(Mode.hybrid, help="hybrid atau dense (ablation)."),
+    baseline: Baseline | None = typer.Option(None, help="full-context: seluruh korpus sebagai konteks, tanpa retrieval."),
+    report_only: bool = typer.Option(False, "--report-only", help="Bangun ulang eval/report.md saja."),
+) -> None:
+    """Evaluasi golden set per tahap, tulis eval/results/<config>.json dan eval/report.md."""
+    from sop_assistant.evaluation import CONFIG_LABEL, run, summarize, write_report
+
+    if not report_only:
+        data = run("full_context" if baseline else mode.value)
+        table = Table(title=f"Ringkasan: {CONFIG_LABEL[data['config']]}")
+        table.add_column("Metrik")
+        table.add_column("Nilai")
+        for metric, value in summarize(data).items():
+            table.add_row(metric, value)
+        console.print(table)
+    console.print(f"Laporan: {write_report()}")
 
 
 if __name__ == "__main__":

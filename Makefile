@@ -6,7 +6,7 @@ UV := uv run
 UV_HTTP_TIMEOUT ?= 120
 export UV_HTTP_TIMEOUT
 
-.PHONY: help setup models qdrant-up qdrant-down check-pdfs smoke extract before-after ingest search ask test test-unit calibrate eval demo requirements
+.PHONY: help setup models qdrant-up qdrant-down check-pdfs smoke extract before-after ingest search ask test test-unit calibrate eval eval-ablation report demo requirements
 
 help: ## Tampilkan daftar perintah
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  %-13s %s\n", $$1, $$2}'
@@ -55,8 +55,15 @@ test-unit: ## Test tanpa Qdrant dan model embedding
 calibrate: ## M4: hitung threshold abstain dari golden set
 	$(UV) python eval/calibrate.py
 
-eval: ## M4: evaluasi per tahap, tulis eval/report.md
-	$(UV) python eval/run_eval.py
+eval: ## M4: evaluasi per tahap (hybrid), tulis eval/report.md
+	$(UV) sop eval
+
+eval-ablation: ## Buffer: dense-only dan baseline full-context, kolom tambahan di report
+	$(UV) sop eval --mode dense
+	$(UV) sop eval --baseline full-context
+
+report: ## Bangun ulang eval/report.md dari eval/results/ tanpa memanggil LLM
+	$(UV) sop eval --report-only
 
 demo: ## M5: jalankan pertanyaan demo, tulis demo/demo_output.md
 	$(UV) python demo/run_demo.py

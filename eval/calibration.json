@@ -1,0 +1,32 @@
+{
+  "abstain_threshold": 0.4599,
+  "method": "skor tumpang tindih: 2 out-of-scope di atas in-scope terendah dan diserahkan ke LLM; threshold di tengah celah yang tersisa",
+  "lowest_in_scope": 0.5025,
+  "highest_out_of_scope": 0.5138,
+  "n_in_scope": 18,
+  "n_out_of_scope": 3,
+  "scores": {
+    "q01": 0.5371,
+    "q02": 0.7621,
+    "q03": 0.7569,
+    "q04": 0.668,
+    "q05": 0.7135,
+    "q06": 0.6703,
+    "q07": 0.7144,
+    "q08": 0.7219,
+    "q09": 0.699,
+    "q10": 0.6526,
+    "q11": 0.6,
+    "q12": 0.651,
+    "q13": 0.7765,
+    "q14": 0.6255,
+    "q15": 0.6194,
+    "q16": 0.5138,
+    "q17": 0.5084,
+    "q18": 0.4174,
+    "q19": 0.5025,
+    "q20": 0.678,
+    "q21": 0.6147
+  },
+  "warning": "Threshold dipilih dari golden set kecil yang juga dipakai untuk evaluasi; berisiko overfit dan perlu dikalibrasi ulang dengan pertanyaan nyata."
+}
