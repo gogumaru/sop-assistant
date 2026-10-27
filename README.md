@@ -56,6 +56,7 @@ make test         # unit test + integrasi (integrasi di-skip jika Qdrant mati)
 make ask Q="Kalau pelanggan tidak merespons, kapan tiket boleh ditutup?"
 uv run sop ask "..." --json        # hasil lengkap: klaim, hasil guard, alasan perbaikan
 make chat         # mode interaktif: model dimuat sekali, tahap proses tampil saat menjawab
+make ui           # demo web di http://127.0.0.1:8000, browser terbuka setelah model siap
 
 make calibrate    # pilih threshold abstain -> eval/calibration.json
 make eval         # evaluasi hybrid -> eval/results/hybrid.json + eval/report.md
@@ -64,6 +65,8 @@ make demo         # pertanyaan demo -> demo/demo_output.md
 ```
 
 `make help` menampilkan semua target. Target lain: `make search Q="..."` (debug retrieval tanpa LLM), `make check-pdfs` (PDF mana yang perlu OCR), `make before-after` (bahan bagian dua kolom).
+
+**Web UI demo** (`make ui`) adalah tambahan untuk demonstrasi, bukan inti solusi; brief tidak mewajibkannya. UI memanggil `Assistant` yang sama dengan CLI dan eval, jadi angka di `eval/report.md` juga berlaku di sini. Isinya: langkah sistem yang nyata selama menunggu (data yang disamarkan, jumlah bagian dan skor, klaim yang ditolak pemeriksa sumber), badge status, chip "Maksud Anda" untuk istilah ambigu, dan panel kanan berisi halaman PDF asli dengan section yang disitasi disorot. Server hanya di-bind ke `127.0.0.1`; masukan suka/tidak suka disimpan lokal di `data/feedback.jsonl` (di-gitignore) sebagai bahan golden set dari pertanyaan nyata.
 
 **Tanpa Docker.** Kosongkan `QDRANT_URL=` di `.env`. Qdrant berjalan embedded dengan kode dan Query API yang sama, data di `data/qdrant_local/`.
 
@@ -116,7 +119,8 @@ Hanya kotak "LLM" yang memakai model generatif. Semua keputusan lain (abstain, a
 | `guards.py` | masking PII, abstain, glossary, citation guard (angka, satuan, pasangan angka-level), cakupan skala, aturan eskalasi |
 | `engines.py` | `LLMEngine` protocol: `OllamaEngine`, `OpenAICompatEngine`, `FakeEngine` |
 | `prompts.py`, `answer.py` | prompt, skema output, pipeline, penentuan status, kabar tahap proses |
-| `session.py` | `Assistant`: model dimuat sekali, dipakai `sop ask` dan `sop chat` |
+| `session.py` | `Assistant`: model embedding dan LLM dimuat sekali, dipakai `sop ask`, `sop chat`, dan server |
+| `server.py`, `web/` | Demo web: FastAPI (stream langkah sistem, render halaman PDF dengan highlight) + satu halaman HTML/CSS/JS tanpa build |
 | `evaluation.py` | metrik per tahap, baseline, laporan |
 
 ## Keputusan teknis
@@ -277,7 +281,9 @@ Baris terakhir disengaja: metrik turun karena jawaban yang salah sekarang bersta
 - **OCR bergantung pada gambar sekitar 122 DPI.** `;` terbaca `:` di tiga tempat (misalnya KB_01 §4 "P1: 15 menit: P2: 1 jam"); tidak mengubah angka, tetapi struktur kalimat jadi rancu. Tidak dikoreksi karena tidak punya format pasti.
 - **Tidak ada versioning SOP.** Jika SOP berubah, ingest menimpa chunk lama; tidak ada riwayat atau tanggal berlaku.
 - **Determinisme.** `temperature=0` dan `seed=0`, tetapi output bisa sedikit berbeda antar versi Ollama atau model.
-- **`sop ask` memuat model di setiap perintah** (sekitar 5-8 detik). `sop chat`, eval, dan demo memuat sekali.
+- **`sop ask` memuat model di setiap perintah** (sekitar 5-8 detik). `sop chat`, `sop ui`, eval, dan demo memuat sekali.
+- **Web UI untuk satu pengguna lokal.** Pertanyaan diproses bergiliran (satu model di satu laptop), tidak ada autentikasi, riwayat hanya selama halaman terbuka, dan layout dirancang untuk layar laptop (1280-1440px).
+- **Jawaban sensitif terhadap penulisan pertanyaan.** "gangguan kritis..." (huruf kecil) dan "Gangguan kritis..." bisa menghasilkan jawaban berbeda. Di salah satu percobaan UI, versi huruf kecil berakhir `guard_failed` sementara versi golden set lolos.
 - **Golden set disusun oleh pembuat sistem**, jadi bias ke kasus yang sudah terpikirkan.
 
 ## Sudah dibangun vs rencana
@@ -288,7 +294,8 @@ Baris terakhir disengaja: metrik turun karena jawaban yang salah sekarang bersta
 | Qdrant hybrid dense + sparse bge-m3, RRF, ingest idempoten, mode embedded tanpa Docker | Uji retrieval di korpus besar, reranker |
 | Masking PII, abstain dua lapis, glossary P vs SEV, citation guard (angka, satuan, pasangan angka-level), cakupan skala, eskalasi deterministik, satu kali perbaikan | Cek entitas, cek syarat berlaku yang hilang, kalibrasi status `partial` |
 | `OllamaEngine` (default), `OpenAICompatEngine` (minimal), `FakeEngine` | Perbandingan model (`qwen3:8b` sudah terpasang) |
-| CLI `ingest`, `search`, `ask`, `chat`, `eval`; `make demo`; kelas `Assistant` dan kabar tahap proses | Web UI demo di atas `Assistant` (halaman PDF dengan section tersorot, tahap proses lewat SSE) |
+| CLI `ingest`, `search`, `ask`, `chat`, `eval`; `make demo`; kelas `Assistant` dan kabar tahap proses | Highlight per kalimat (sekarang per section), layout untuk layar kecil |
+| Web UI demo (`make ui`): langkah sistem lewat SSE, halaman PDF dengan section tersorot, chip klarifikasi, masukan suka/tidak suka | Memakai masukan dari `data/feedback.jsonl` untuk memperluas golden set |
 | Golden set 21 pertanyaan, kalibrasi, eval per tahap, ablation dense, baseline full-context | Golden set dari pertanyaan petugas nyata, kalibrasi ulang |
 
 ## Prioritas perbaikan
