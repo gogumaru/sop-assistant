@@ -6,7 +6,7 @@ UV := uv run
 UV_HTTP_TIMEOUT ?= 120
 export UV_HTTP_TIMEOUT
 
-.PHONY: help setup models qdrant-up qdrant-down check-pdfs smoke extract before-after ingest search ask chat test test-unit calibrate eval eval-ablation report demo requirements
+.PHONY: help setup models qdrant-up qdrant-down check-pdfs smoke extract before-after ingest search ask chat ui test test-unit calibrate eval eval-ablation report demo requirements
 
 help: ## Tampilkan daftar perintah
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  %-13s %s\n", $$1, $$2}'
@@ -48,6 +48,9 @@ ask: ## M3: tanya SOP, contoh: make ask Q="Berapa target respons awal untuk tike
 
 chat: ## Mode interaktif: model dimuat sekali per sesi
 	$(UV) sop chat
+
+ui: ## Demo web di http://127.0.0.1:8000 (pipeline sama dengan CLI)
+	$(UV) sop ui
 
 test: ## Jalankan semua test (integrasi di-skip jika Qdrant mati)
 	$(UV) pytest -q

@@ -31,6 +31,15 @@ class OllamaEngine:
         self.timeout = timeout or settings.llm_timeout
         self.name = f"ollama:{self.model}"
 
+    def warm_up(self) -> None:
+        """Muat model ke memori tanpa membuat teks, agar pertanyaan pertama tidak menanggung waktu muat."""
+        response = httpx.post(
+            f"{self.url}/api/generate",
+            json={"model": self.model, "keep_alive": OLLAMA_KEEP_ALIVE},
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+
     def generate_json(self, system: str, user: str, schema: dict) -> dict:
         payload = {
             "model": self.model,

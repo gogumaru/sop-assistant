@@ -11,6 +11,9 @@ __pycache__/
 # Index Qdrant mode embedded (bisa dibangun ulang dengan make ingest)
 data/qdrant_local/
 
+# Masukan suka/tidak suka dari UI demo (lokal, bahan golden set)
+data/feedback.jsonl
+
 # macOS
 .DS_Store
 

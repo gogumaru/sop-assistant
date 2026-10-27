@@ -271,6 +271,7 @@ Baris terakhir disengaja: metrik turun karena jawaban yang salah sekarang bersta
 - **Threshold dari 21 pertanyaan**, set yang sama dengan evaluasi. Berisiko overfit; perlu kalibrasi ulang dengan pertanyaan nyata.
 - **Glossary manual.** Istilah di luar daftar (misalnya "urgent", "darurat sekali") tidak terdeteksi sebagai ambigu.
 - **Citation guard memeriksa angka, satuan, dan pasangan angka-level, tetapi tidak entitas lain** (e-wallet, "segera", "menggunakan"). Pasangan angka-level hanya mengenali level yang ditulis *sebelum* angka di sumber, melewati kalimat bernegasi, dan tidak memeriksa angka yang berlaku umum; "kecuali tiket P1" setelah angka tidak tertangkap.
+- **Cakupan skala hanya memeriksa token level dan dokumen**, bukan isinya. Di UI, model memenuhinya dengan klaim definisi "SEV1: gangguan menyeluruh..." (KB_04 §2) tanpa menyebut frekuensi update 20 menit. Status tetap `needs_review`, dan chip klarifikasi "SEV1" menghasilkan jawaban yang benar, tetapi jawaban pertamanya tidak lengkap.
 - **Aturan eskalasi manual** ([`escalation.yaml`](escalation.yaml)), hanya dua topik yang pihak berwenangnya disebut eksplisit di SOP.
 - **Korpus kecil** (4 dokumen satu halaman, 32 chunk). RAG belum diuji di skala besar, dokumen multi-halaman, atau section yang melintasi halaman (kode mencatat halaman heading saja).
 - **OCR bergantung pada gambar sekitar 122 DPI.** `;` terbaca `:` di tiga tempat (misalnya KB_01 §4 "P1: 15 menit: P2: 1 jam"); tidak mengubah angka, tetapi struktur kalimat jadi rancu. Tidak dikoreksi karena tidak punya format pasti.

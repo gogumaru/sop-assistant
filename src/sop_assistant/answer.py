@@ -33,7 +33,9 @@ from sop_assistant.prompts import SYSTEM_PROMPT, answer_schema, build_repair_pro
 from sop_assistant.retrieve import Hit, Mode, RetrievalResult, retrieve
 
 Retriever = Callable[..., RetrievalResult]
-StageCallback = Callable[[str], None]  # dipanggil dengan "retrieval", "llm", atau "repair"
+# Dipanggil dengan (nama tahap, data nyata tahap itu): mask, retrieval, retrieved, abstain,
+# ambiguity, llm, verify, repair, escalation. Dipakai `sop chat` dan langkah sistem di UI.
+StageCallback = Callable[[str, dict], None]
 
 SNIPPET_CHARS = 200
 AMBIGUITY_EXTRA_K = 2  # chunk tambahan per skala saat istilah ambigu terdeteksi
@@ -91,6 +93,11 @@ class AnswerResult:
     scale_gaps: list[str] = field(default_factory=list)  # skala ambigu yang tetap tidak terjawab
     pii_masked: int = 0
     timings_ms: dict[str, float] = field(default_factory=dict)
+
+
+def clarified_question(question: str, candidate) -> str:
+    """Pertanyaan ulang dengan level eksplisit (mis. "... untuk P1 Kritis?"), sehingga tidak lagi ambigu."""
+    return f"{question.rstrip(' ?')} untuk {candidate.level}?"
 
 
 def _none_if_empty(value: str | None) -> str | None:
@@ -174,17 +181,20 @@ def answer_question(
     threshold: float | None = settings.abstain_threshold,
     on_stage: StageCallback | None = None,
 ) -> AnswerResult:
-    stage = on_stage or (lambda _: None)
+    stage = on_stage or (lambda name, info: None)
     start = time.perf_counter()
     timings: dict[str, float] = {}
     masked, n_masked = mask_pii(question)
+    stage("mask", {"masked": n_masked})
 
-    stage("retrieval")
+    stage("retrieval", {})
     t = time.perf_counter()
     retrieval = retriever(masked, k=k, mode=mode)
     timings["retrieval"] = (time.perf_counter() - t) * 1000
+    stage("retrieved", {"count": len(retrieval.hits), "top_score": round(retrieval.dense_top1, 3)})
 
     if should_abstain(retrieval.dense_top1, threshold):
+        stage("abstain", {"score": round(retrieval.dense_top1, 3), "threshold": threshold})
         timings["total"] = (time.perf_counter() - start) * 1000
         return AnswerResult(
             question=masked,
@@ -204,6 +214,7 @@ def answer_question(
         t = time.perf_counter()
         hits = _with_both_scales(masked, hits, ambiguity, retriever, mode)
         timings["retrieval"] += (time.perf_counter() - t) * 1000
+        stage("ambiguity", {"term": ambiguity.term, "options": [c.level for c in ambiguity.candidates]})
 
     context = {h.chunk_id: h.payload for h in hits}
     context_text = {chunk_id: p["text"] for chunk_id, p in context.items()}
@@ -211,16 +222,20 @@ def answer_question(
     schema = answer_schema(list(context))
     user = build_user_prompt(masked, hits, ambiguity)
 
-    stage("llm")
+    def verify(output: dict, guard: GuardResult) -> tuple[list[Scale], list[str]]:
+        gaps = _scale_gaps(output, doc_of, ambiguity)
+        problems = guard.errors + [_gap_error(ambiguity, scale) for scale in gaps]
+        stage("verify", {"ok": not problems, "claims": len(output.get("claims") or []), "errors": problems})
+        return gaps, problems
+
+    stage("llm", {"model": engine.name, "context": len(hits)})
     t = time.perf_counter()
     output, guard = _generate(engine, user, schema, context_text)
-    gaps = _scale_gaps(output, doc_of, ambiguity)
-    repair_reasons: list[str] = []
-    if not guard.ok or gaps:
-        stage("repair")
-        repair_reasons = guard.errors + [_gap_error(ambiguity, scale) for scale in gaps]
+    gaps, repair_reasons = verify(output, guard)
+    if repair_reasons:
+        stage("repair", {"reasons": repair_reasons})
         output, guard = _generate(engine, build_repair_prompt(user, output, repair_reasons), schema, context_text)
-        gaps = _scale_gaps(output, doc_of, ambiguity)
+        gaps, _ = verify(output, guard)
     timings["llm"] = (time.perf_counter() - t) * 1000
 
     status, reason = resolve_status(output, guard, ambiguity)
@@ -240,6 +255,7 @@ def answer_question(
     escalation_by_rule = False
     if not escalate_to and (rule := detect_escalation(masked)):
         escalate_to, escalation_by_rule = rule.text(), True
+        stage("escalation", {"to": escalate_to})
 
     timings["total"] = (time.perf_counter() - start) * 1000
     return AnswerResult(

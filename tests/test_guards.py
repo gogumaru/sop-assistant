@@ -278,8 +278,8 @@ def test_pipeline_keeps_escalation_written_by_llm():
     assert (result.escalate_to, result.escalation_by_rule) == ("Pejabat berwenang", False)
 
 
-def test_pipeline_reports_stages():
-    stages: list[str] = []
+def test_pipeline_reports_stages_with_real_data():
+    stages: list[tuple[str, dict]] = []
     bad = llm(claims=[claim("Respons awal P3 adalah 4 jam.", "KB01-p1-s04")], answer="4 jam.")
     good = llm(claims=[claim("Respons awal P3 adalah 4 jam kerja.", "KB01-p1-s04")], answer="4 jam kerja.")
     answer_question(
@@ -287,9 +287,25 @@ def test_pipeline_reports_stages():
         FakeEngine([bad, good]),
         retriever=FakeRetriever(["KB01-p1-s04"]),
         threshold=None,
-        on_stage=stages.append,
+        on_stage=lambda name, info: stages.append((name, info)),
     )
-    assert stages == ["retrieval", "llm", "repair"]
+    names = [name for name, _ in stages]
+    assert names == ["mask", "retrieval", "retrieved", "llm", "verify", "repair", "verify"]
+    first_verify, last_verify = stages[4][1], stages[6][1]
+    assert not first_verify["ok"] and "4 jam" in first_verify["errors"][0]
+    assert last_verify["ok"] and last_verify["claims"] == 1
+
+
+def test_pipeline_reports_abstain_stage():
+    stages: list[str] = []
+    answer_question(
+        "Berapa tunjangan petugas piket?",
+        FakeEngine([]),
+        retriever=FakeRetriever(["KB01-p1-s04"], 0.30),
+        threshold=0.45,
+        on_stage=lambda name, info: stages.append(name),
+    )
+    assert stages[-1] == "abstain"
 
 
 # --- Penentuan status ---

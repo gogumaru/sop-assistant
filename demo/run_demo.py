@@ -70,7 +70,7 @@ def render(item: GoldenItem, result: AnswerResult) -> list[str]:
         by_rule = " *(diisi aturan eskalasi, LLM tidak mengisinya)*" if result.escalation_by_rule else ""
         lines += [f"**Eskalasi ke:** {result.escalate_to}{by_rule}", ""]
     if result.sources:
-        lines += ["**Sumber**", ""]
+        lines += ["**Aturan terkait**" if result.status == "not_in_sop" else "**Sumber**", ""]
         for source in result.sources:
             lines += [f"- {source.label()}", f'  > "{source.snippet}"']
         lines.append("")

@@ -151,7 +151,9 @@ def chat(mode: Mode = typer.Option(Mode.hybrid, help="hybrid atau dense (ablatio
 
         try:
             with console.status(STAGE_TEXT["retrieval"]) as status:
-                result = assistant.ask(line, mode=mode, on_stage=lambda s: status.update(STAGE_TEXT[s]))
+                result = assistant.ask(
+                    line, mode=mode, on_stage=lambda name, info: name in STAGE_TEXT and status.update(STAGE_TEXT[name])
+                )
         except httpx.HTTPError as exc:
             console.print(f"[red]LLM tidak bisa dihubungi ({settings.llm_engine}): {escape(str(exc))}[/]")
             continue
@@ -160,6 +162,24 @@ def chat(mode: Mode = typer.Option(Mode.hybrid, help="hybrid atau dense (ablatio
             continue
         render_result(result)
         console.print()
+
+
+@app.command()
+def ui(
+    port: int = typer.Option(8000, help="Port lokal."),
+    open_browser: bool = typer.Option(True, "--open/--no-open", help="Buka browser setelah model siap."),
+) -> None:
+    """Demo web di http://127.0.0.1:<port>, memakai pipeline yang sama dengan CLI dan eval."""
+    import webbrowser
+
+    import uvicorn
+
+    from sop_assistant.server import create_app
+
+    url = f"http://127.0.0.1:{port}"
+    console.print(f"Memuat model... UI tersedia di {url} setelah siap (Ctrl+C untuk berhenti)")
+    on_ready = (lambda: webbrowser.open(url)) if open_browser else None
+    uvicorn.run(create_app(on_ready=on_ready), host="127.0.0.1", port=port, log_level="warning")
 
 
 def render_result(result, load_s: float | None = None) -> None:
@@ -178,7 +198,8 @@ def render_result(result, load_s: float | None = None) -> None:
         console.print(f"[bold]Eskalasi ke:[/] {escape(result.escalate_to)}{by_rule}")
 
     if result.sources:
-        console.print("\n[bold]Sumber[/]")
+        # Untuk not_in_sop, chunk yang disitasi bukan jawaban, hanya aturan di sekitarnya.
+        console.print("\n[bold]Aturan terkait[/]" if result.status == "not_in_sop" else "\n[bold]Sumber[/]")
         for source in result.sources:
             console.print(f"  {escape(source.label())}")
             console.print(f'    [dim]"{escape(source.snippet)}"[/]')

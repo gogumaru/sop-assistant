@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fbf5ec">
+  <title>Asisten SOP</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main class="app" id="app" data-state="empty">
+    <section class="chat glass" aria-label="Percakapan">
+      <header class="chat__header">
+        <div class="brand">
+          <span class="brand__mark" aria-hidden="true"></span>
+          <p class="brand__title">Asisten SOP</p>
+        </div>
+        <button class="icon-button" id="newChat" type="button" title="Percakapan baru" aria-label="Percakapan baru">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </header>
+
+      <div class="hero" id="hero">
+        <span class="brand__mark brand__mark--large" aria-hidden="true"></span>
+        <h1>Ada yang ingin dicek di SOP?</h1>
+      </div>
+
+      <div class="messages" id="messages" aria-live="polite"></div>
+
+      <form class="composer" id="composer">
+        <textarea id="question" rows="1" placeholder="Tulis pertanyaan tentang SOP..." aria-label="Pertanyaan"></textarea>
+        <button class="send" id="send" type="submit" aria-label="Kirim">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M8 13V3M8 3L4 7M8 3l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </form>
+
+      <div class="suggestions" id="suggestions" aria-label="Contoh pertanyaan"></div>
+    </section>
+
+    <aside class="reference glass" id="reference" aria-label="Dokumen sumber" hidden>
+      <header class="reference__header">
+        <p class="reference__kicker" id="refKicker"></p>
+        <h2 class="reference__title" id="refTitle"></h2>
+        <p class="reference__meta" id="refMeta"></p>
+      </header>
+      <div class="viewer" id="viewer">
+        <img id="pageImage" alt="">
+        <p class="viewer__empty" id="viewerEmpty" hidden>Tidak ada bagian SOP yang mengatur pertanyaan terakhir.</p>
+      </div>
+      <nav class="source-chips" id="sourceChips" aria-label="Pilih sumber"></nav>
+    </aside>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
