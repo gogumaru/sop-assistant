@@ -134,8 +134,56 @@ QUANTITY_RE = re.compile(r"\b(\d+)\s*(menit|jam kerja|jam|hari kerja|hari|minggu
 CLOCK_RE = re.compile(r"\b(\d{1,2})[.:](\d{2})\b")
 
 
+LEVEL_RE = re.compile(r"\b(sev|p)\s?([1-4])\b", re.IGNORECASE)
+NEGATION_RE = re.compile(r"\b(tidak|bukan)\b")
+SOURCE_SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
+CLAIM_SEGMENT_RE = re.compile(r"(?<=[.!?;])\s+")
+
+
 def normalize_numbers(text: str) -> str:
     return WORD_NUMBER_RE.sub(lambda m: WORD_NUMBERS[m.group(1)], text.lower())
+
+
+def levels_in(text: str) -> set[str]:
+    return {f"{prefix.upper()}{number}" for prefix, number in LEVEL_RE.findall(text)}
+
+
+def quantity_owners(source_text: str) -> dict[str, list[set[str]]]:
+    """Untuk setiap angka+satuan di sumber: token level yang mendahuluinya dalam kalimat yang sama,
+    dihitung sejak angka sebelumnya. "P1: 15 menit; P2: 1 jam" -> 15 menit milik P1, 1 jam milik P2.
+    "Untuk SEV1 dan SEV2, ... lima hari kerja" -> milik SEV1 dan SEV2. Set kosong = aturan umum."""
+    owners: dict[str, list[set[str]]] = {}
+    for sentence in SOURCE_SENTENCE_RE.split(normalize_numbers(source_text)):
+        previous_end = 0
+        for m in QUANTITY_RE.finditer(sentence):
+            quantity = f"{int(m.group(1))} {m.group(2)}"
+            owners.setdefault(quantity, []).append(levels_in(sentence[previous_end : m.start()]))
+            previous_end = m.end()
+    return owners
+
+
+def level_binding_errors(text: str, source_texts: list[str]) -> list[str]:
+    """Angka yang dipasangkan ke level yang salah, mis. "SEV1 setiap 30 menit" padahal di sumber
+    30 menit milik P1. Konservatif: kalimat dengan negasi dilewati (koreksi premis "P3 tidak perlu
+    4 jam kerja" sah), dan angka yang di sumber berlaku umum tidak diperiksa."""
+    owners: dict[str, list[set[str]]] = {}
+    for source in source_texts:
+        for quantity, sets in quantity_owners(source).items():
+            owners.setdefault(quantity, []).extend(sets)
+
+    errors = []
+    for segment in CLAIM_SEGMENT_RE.split(normalize_numbers(text)):
+        levels = levels_in(segment)
+        if not levels or NEGATION_RE.search(segment):
+            continue
+        for m in QUANTITY_RE.finditer(segment):
+            quantity = f"{int(m.group(1))} {m.group(2)}"
+            occurrences = owners.get(quantity, [])
+            if not occurrences or any(not o for o in occurrences) or any(o & levels for o in occurrences):
+                continue
+            owned_by = sorted(set().union(*occurrences))
+            errors.append(f"di sumber {quantity} berlaku untuk {', '.join(owned_by)}, bukan {', '.join(sorted(levels))}")
+    return errors
 
 
 def extract_quantities(text: str) -> set[str]:
@@ -160,8 +208,8 @@ def check_citations(output: dict, context: dict[str, str]) -> GuardResult:
     - Status answered wajib punya klaim.
     - Setiap angka+satuan di klaim harus ada di chunk yang disitasi klaim itu.
     - Setiap angka+satuan di `answer` harus ada di salah satu chunk yang disitasi.
-    Keterbatasan: hanya mengecek angka ADA di sumber, bukan bahwa angka itu milik level
-    yang benar (misalnya "4 jam kerja" untuk P2, bukan P3).
+    - Angka yang disebut bersama level (P1-P4, SEV1-SEV4) harus milik level itu di sumber.
+    Keterbatasan: entitas selain angka dan level (mis. "e-wallet") tidak diperiksa.
     """
     errors: list[str] = []
     valid: list[dict] = []
@@ -180,6 +228,8 @@ def check_citations(output: dict, context: dict[str, str]) -> GuardResult:
         source_quantities = set().union(*(extract_quantities(context[c]) for c in known))
         if missing := extract_quantities(claim.get("text", "")) - source_quantities:
             claim_errors.append(f"Klaim {i}: {sorted(missing)} tidak tertulis di chunk yang disitasi {known}.")
+        if binding := level_binding_errors(claim.get("text", ""), [context[c] for c in known]):
+            claim_errors.append(f"Klaim {i}: {'; '.join(binding)}.")
         errors.extend(claim_errors)
         if not claim_errors:
             valid.append(claim)
@@ -188,5 +238,40 @@ def check_citations(output: dict, context: dict[str, str]) -> GuardResult:
     cited_quantities = set().union(*(extract_quantities(context[c]) for c in cited))
     if stray := extract_quantities(output.get("answer", "")) - cited_quantities:
         errors.append(f"Jawaban memuat {sorted(stray)} yang tidak tertulis di chunk mana pun yang disitasi.")
+    if binding := level_binding_errors(output.get("answer", ""), [context[c] for c in cited]):
+        errors.append(f"Jawaban: {'; '.join(binding)}.")
 
     return GuardResult(ok=not errors, errors=errors, valid_claims=valid)
+
+
+# --- Eskalasi (manusia memegang keputusan) ---
+
+ESCALATION_PATH = ROOT / "escalation.yaml"
+
+
+@dataclass(frozen=True)
+class EscalationRule:
+    id: str
+    terms: tuple[str, ...]
+    escalate_to: str
+    source: str
+
+    def text(self) -> str:
+        return f"{self.escalate_to} ({self.source})"
+
+
+@lru_cache(maxsize=4)
+def load_escalation_rules(path: Path = ESCALATION_PATH) -> tuple[EscalationRule, ...]:
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return tuple(
+        EscalationRule(t["id"], tuple(term.lower() for term in t["terms"]), t["escalate_to"], t["source"])
+        for t in data["topics"]
+    )
+
+
+def detect_escalation(question: str) -> EscalationRule | None:
+    text = question.lower()
+    for rule in load_escalation_rules():
+        if any(re.search(rf"\b{re.escape(term)}\b", text) for term in rule.terms):
+            return rule
+    return None

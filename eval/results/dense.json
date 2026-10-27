@@ -2,8 +2,8 @@
   "config": "dense",
   "engine": "ollama:qwen2.5:7b",
   "threshold": 0.4599,
-  "model_load_s": 7.489442166988738,
-  "generated_at": "2026-10-27T06:59:50",
+  "model_load_s": 7.783808040985605,
+  "generated_at": "2026-10-27T08:23:19",
   "records": [
     {
       "id": "q01",
@@ -48,9 +48,9 @@
       "scale_gaps": [],
       "dense_top1": 0.5370792,
       "latency_ms": {
-        "retrieval": 84.64741701027378,
-        "llm": 4251.655667001614,
-        "total": 4338.38470900082
+        "retrieval": 88.8436250097584,
+        "llm": 5252.615125005832,
+        "total": 5346.701582981041
       },
       "notes": []
     },
@@ -97,9 +97,9 @@
       "scale_gaps": [],
       "dense_top1": 0.7620908,
       "latency_ms": {
-        "retrieval": 105.45045899925753,
-        "llm": 6620.327250013361,
-        "total": 6726.009332982358
+        "retrieval": 107.09483298705891,
+        "llm": 6788.73137498158,
+        "total": 6896.146624989342
       },
       "notes": []
     },
@@ -146,9 +146,9 @@
       "scale_gaps": [],
       "dense_top1": 0.75685936,
       "latency_ms": {
-        "retrieval": 95.35687501193024,
-        "llm": 4968.837249994976,
-        "total": 5064.239291998092
+        "retrieval": 108.03037500591017,
+        "llm": 5152.332708996255,
+        "total": 5260.428084002342
       },
       "notes": []
     },
@@ -198,9 +198,9 @@
       "scale_gaps": [],
       "dense_top1": 0.66795504,
       "latency_ms": {
-        "retrieval": 102.30995799065568,
-        "llm": 5566.804292000597,
-        "total": 5669.154500006698
+        "retrieval": 105.1865839981474,
+        "llm": 5628.005667007528,
+        "total": 5733.314416982466
       },
       "notes": [
         "tidak memuat: SEV1, SEV2"
@@ -249,9 +249,9 @@
       "scale_gaps": [],
       "dense_top1": 0.7135369,
       "latency_ms": {
-        "retrieval": 110.00329200760461,
-        "llm": 6240.7996249967255,
-        "total": 6350.847166002495
+        "retrieval": 98.12095802044496,
+        "llm": 6335.657708987128,
+        "total": 6433.855875016889
       },
       "notes": []
     },
@@ -298,9 +298,9 @@
       "scale_gaps": [],
       "dense_top1": 0.6702515,
       "latency_ms": {
-        "retrieval": 101.51258399127983,
-        "llm": 5977.7669579780195,
-        "total": 6079.319957992993
+        "retrieval": 100.8682909887284,
+        "llm": 6041.049875027966,
+        "total": 6141.98795898119
       },
       "notes": []
     },
@@ -347,9 +347,9 @@
       "scale_gaps": [],
       "dense_top1": 0.7143911,
       "latency_ms": {
-        "retrieval": 101.46329100825824,
-        "llm": 8036.8081250053365,
-        "total": 8138.317459000973
+        "retrieval": 93.57108399854042,
+        "llm": 8019.85125002102,
+        "total": 8113.556457974482
       },
       "notes": []
     },
@@ -396,9 +396,9 @@
       "scale_gaps": [],
       "dense_top1": 0.7218617,
       "latency_ms": {
-        "retrieval": 103.20795798907056,
-        "llm": 4633.736916002817,
-        "total": 4736.989833007101
+        "retrieval": 99.5486659812741,
+        "llm": 4710.56433301419,
+        "total": 4810.23354199715
       },
       "notes": []
     },
@@ -446,9 +446,9 @@
       "scale_gaps": [],
       "dense_top1": 0.69898176,
       "latency_ms": {
-        "retrieval": 94.51916700345464,
-        "llm": 6748.92708400148,
-        "total": 6843.488374986919
+        "retrieval": 84.92945801117457,
+        "llm": 7821.401707973564,
+        "total": 7906.584291020408
       },
       "notes": [
         "sitasi kurang (harus: KB04-p1-s07, KB01-p1-s07)"
@@ -504,9 +504,9 @@
       "scale_gaps": [],
       "dense_top1": 0.6525569,
       "latency_ms": {
-        "retrieval": 277.8556240082253,
-        "llm": 21045.12366699055,
-        "total": 21323.015125002712
+        "retrieval": 265.63004197669216,
+        "llm": 21111.01108402363,
+        "total": 21376.816083007725
       },
       "notes": [
         "1x perbaikan"
@@ -560,9 +560,9 @@
       "scale_gaps": [],
       "dense_top1": 0.60003495,
       "latency_ms": {
-        "retrieval": 255.10629199561663,
-        "llm": 11244.231165997917,
-        "total": 11499.383375019534
+        "retrieval": 281.0131669975817,
+        "llm": 11213.38079200359,
+        "total": 11494.500666012755
       },
       "notes": []
     },
@@ -613,9 +613,9 @@
       "scale_gaps": [],
       "dense_top1": 0.6509763,
       "latency_ms": {
-        "retrieval": 102.66787497675978,
-        "llm": 7000.338625017321,
-        "total": 7103.02829099237
+        "retrieval": 102.48562498600222,
+        "llm": 6959.98812498874,
+        "total": 7062.588458007667
       },
       "notes": [
         "tidak memuat: koordinator"
@@ -664,9 +664,9 @@
       "scale_gaps": [],
       "dense_top1": 0.77651787,
       "latency_ms": {
-        "retrieval": 103.3332499791868,
-        "llm": 6188.512958004139,
-        "total": 6291.864916012855
+        "retrieval": 100.60179201536812,
+        "llm": 6136.792417004472,
+        "total": 6237.490125000477
       },
       "notes": []
     },
@@ -684,7 +684,7 @@
       "review_reason": null,
       "answer": "Petugas tidak boleh menjanjikan nominal kompensasi sebelum ada persetujuan pejabat berwenang.",
       "missing": null,
-      "escalate_to": null,
+      "escalate_to": "Pejabat berwenang; jangan menjanjikan apa pun sebelum ada persetujuannya (KB_02 §7)",
       "cited": [
         "KB02-p1-s07"
       ],
@@ -713,9 +713,9 @@
       "scale_gaps": [],
       "dense_top1": 0.62549114,
       "latency_ms": {
-        "retrieval": 102.8790420095902,
-        "llm": 5943.285707995528,
-        "total": 6046.21450000559
+        "retrieval": 97.23741700872779,
+        "llm": 5881.25316699734,
+        "total": 5978.562083008001
       },
       "notes": [
         "status beda"
@@ -735,7 +735,7 @@
       "review_reason": null,
       "answer": "Penilaian dampak kebocoran data dilakukan oleh pihak yang berwenang.",
       "missing": null,
-      "escalate_to": null,
+      "escalate_to": "Kanal keamanan, penilaian dampak oleh pihak yang berwenang; informasikan koordinator layanan (KB_04 §6, KB_01 §8)",
       "cited": [
         "KB04-p1-s06"
       ],
@@ -764,9 +764,9 @@
       "scale_gaps": [],
       "dense_top1": 0.6193553,
       "latency_ms": {
-        "retrieval": 98.94779199385084,
-        "llm": 5004.681416990934,
-        "total": 5103.667290997691
+        "retrieval": 110.60608399566263,
+        "llm": 4915.499458002159,
+        "total": 5026.222915999824
       },
       "notes": [
         "status beda"
@@ -784,7 +784,7 @@
       "review_reason": null,
       "answer": "Petugas tidak boleh menjanjikan refund lewat e-wallet sebelum ada persetujuan pejabat berwenang.",
       "missing": null,
-      "escalate_to": null,
+      "escalate_to": "Pejabat berwenang; jangan menjanjikan apa pun sebelum ada persetujuannya (KB_02 §7)",
       "cited": [
         "KB02-p1-s07"
       ],
@@ -807,9 +807,9 @@
       "scale_gaps": [],
       "dense_top1": 0.51378006,
       "latency_ms": {
-        "retrieval": 144.3789160111919,
-        "llm": 6102.8059590025805,
-        "total": 6247.233166999649
+        "retrieval": 141.37854098225944,
+        "llm": 6045.772790996125,
+        "total": 6187.247875001049
       },
       "notes": []
     },
@@ -844,9 +844,9 @@
       "scale_gaps": [],
       "dense_top1": 0.5083742,
       "latency_ms": {
-        "retrieval": 145.24524999433197,
-        "llm": 3520.1741670025513,
-        "total": 3665.480249997927
+        "retrieval": 143.44695801264606,
+        "llm": 3461.7475839913823,
+        "total": 3605.3264579968527
       },
       "notes": []
     },
@@ -881,8 +881,8 @@
       "scale_gaps": [],
       "dense_top1": 0.4174127,
       "latency_ms": {
-        "retrieval": 144.38312497804873,
-        "total": 144.39737499924377
+        "retrieval": 144.44879099028185,
+        "total": 144.4622089911718
       },
       "notes": [
         "abstain sebelum LLM"
@@ -931,9 +931,9 @@
       "scale_gaps": [],
       "dense_top1": 0.50246185,
       "latency_ms": {
-        "retrieval": 83.9487079938408,
-        "llm": 6039.577541989274,
-        "total": 6123.544458998367
+        "retrieval": 84.0031249972526,
+        "llm": 5965.948957978981,
+        "total": 6050.041541981045
       },
       "notes": []
     },
@@ -980,9 +980,9 @@
       "scale_gaps": [],
       "dense_top1": 0.6780366,
       "latency_ms": {
-        "retrieval": 105.63925001770258,
-        "llm": 5182.601000007708,
-        "total": 5288.282167020952
+        "retrieval": 102.33074999996461,
+        "llm": 5116.95237501408,
+        "total": 5219.349958002567
       },
       "notes": []
     },
@@ -1029,9 +1029,9 @@
       "scale_gaps": [],
       "dense_top1": 0.61465734,
       "latency_ms": {
-        "retrieval": 96.6757079877425,
-        "llm": 5084.846916986862,
-        "total": 5181.56799999997
+        "retrieval": 107.49033399042673,
+        "llm": 5030.637374991784,
+        "total": 5138.219875021605
       },
       "notes": []
     }

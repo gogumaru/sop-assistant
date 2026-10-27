@@ -1,0 +1,13 @@
+# Topik yang keputusannya dipegang manusia. Jika pertanyaan menyentuh topik ini dan LLM
+# tidak mengisi escalate_to, kode mengisinya dari SOP. Hanya topik yang pihak berwenangnya
+# disebut eksplisit di SOP; status jawaban tidak diubah oleh aturan ini.
+
+topics:
+  - id: kompensasi
+    terms: ["kompensasi", "ganti rugi", "refund", "pengembalian dana", "uang kembali"]
+    escalate_to: "Pejabat berwenang; jangan menjanjikan apa pun sebelum ada persetujuannya"
+    source: "KB_02 §7"
+  - id: kebocoran_data
+    terms: ["kebocoran data", "kebocoran", "data bocor", "insiden keamanan"]
+    escalate_to: "Kanal keamanan, penilaian dampak oleh pihak yang berwenang; informasikan koordinator layanan"
+    source: "KB_04 §6, KB_01 §8"

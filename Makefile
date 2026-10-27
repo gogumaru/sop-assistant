@@ -6,7 +6,7 @@ UV := uv run
 UV_HTTP_TIMEOUT ?= 120
 export UV_HTTP_TIMEOUT
 
-.PHONY: help setup models qdrant-up qdrant-down check-pdfs smoke extract before-after ingest search ask test test-unit calibrate eval eval-ablation report demo requirements
+.PHONY: help setup models qdrant-up qdrant-down check-pdfs smoke extract before-after ingest search ask chat test test-unit calibrate eval eval-ablation report demo requirements
 
 help: ## Tampilkan daftar perintah
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  %-13s %s\n", $$1, $$2}'
@@ -45,6 +45,9 @@ search: ## M2: debug retrieval, contoh: make search Q="brp lama sev2 hrs dieskal
 
 ask: ## M3: tanya SOP, contoh: make ask Q="Berapa target respons awal untuk tiket P2?"
 	$(UV) sop ask "$(Q)"
+
+chat: ## Mode interaktif: model dimuat sekali per sesi
+	$(UV) sop chat
 
 test: ## Jalankan semua test (integrasi di-skip jika Qdrant mati)
 	$(UV) pytest -q

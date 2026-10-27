@@ -11,8 +11,11 @@ from sop_assistant.guards import (
     GuardResult,
     check_citations,
     detect_ambiguity,
+    detect_escalation,
     extract_quantities,
+    level_binding_errors,
     mask_pii,
+    quantity_owners,
     should_abstain,
     uncovered_scales,
 )
@@ -201,6 +204,92 @@ def test_guard_rejects_answered_without_claims():
 
 def test_guard_allows_not_in_sop_without_claims():
     assert check_citations(llm(status="not_in_sop", answer="SOP tidak mengatur hal ini."), CONTEXT).ok
+
+
+# --- Pasangan angka dan level ---
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        # Teks OCR KB_01 §4: titik koma terbaca titik dua, pasangan tetap benar.
+        ("P1: 15 menit: P2: 1 jam: P3: 4 jam kerja", {"15 menit": [{"P1"}], "1 jam": [{"P2"}], "4 jam kerja": [{"P3"}]}),
+        ("Untuk SEV1 dan SEV2, tim menyusun tinjauan paling lambat lima hari kerja.", {"5 hari kerja": [{"SEV1", "SEV2"}]}),
+        ("setelah dua hari kerja tanpa tanggapan, kecuali tiket P1", {"2 hari kerja": [set()]}),  # aturan umum
+    ],
+)
+def test_quantity_owners(source, expected):
+    assert quantity_owners(source) == expected
+
+
+def test_binding_catches_number_attached_to_wrong_level():
+    # Kasus nyata baseline full-context q10: 30 menit milik P1, bukan SEV1.
+    errors = level_binding_errors("Gangguan kritis (SEV1) harus diperbarui setiap 30 menit.", [CONTEXT["KB03-p1-s04"]])
+    assert errors and "P1" in errors[0]
+
+
+def test_binding_allows_correct_pairs_and_negated_premise():
+    sources = [CONTEXT["KB03-p1-s04"], CONTEXT["KB04-p1-s05"]]
+    assert level_binding_errors("P1: 30 menit ke pelanggan. SEV1: 20 menit untuk status internal.", sources) == []
+    # Koreksi premis q13 menyebut P3 dan "4 jam kerja" (milik P2) dalam kalimat bernegasi.
+    assert level_binding_errors("Tidak, tiket P3 tidak perlu diperbarui setiap 4 jam kerja.", sources) == []
+
+
+def test_guard_rejects_wrong_level_binding_in_claim():
+    output = llm(claims=[claim("SEV1 diperbarui setiap 30 menit.", "KB03-p1-s04")], answer="SEV1: setiap 30 menit.")
+    result = check_citations(output, CONTEXT)
+    assert not result.ok and result.valid_claims == []
+
+
+# --- Eskalasi ---
+
+
+@pytest.mark.parametrize(
+    ("question", "topic"),
+    [
+        ("Berapa nominal kompensasi yang boleh dijanjikan petugas?", "kompensasi"),
+        ("Bagaimana prosedur refund lewat e-wallet?", "kompensasi"),
+        ("Siapa yang menilai dampak kebocoran data?", "kebocoran_data"),
+        ("Status tiket apa saja yang dipakai?", None),
+    ],
+)
+def test_detect_escalation(question, topic):
+    rule = detect_escalation(question)
+    assert (rule.id if rule else None) == topic
+
+
+def test_pipeline_fills_escalation_when_llm_leaves_it_empty():
+    engine = FakeEngine([llm(status="needs_review", reason="partial", answer="Nominal tidak diatur.")])
+    result = answer_question(
+        "Berapa nominal kompensasi yang boleh dijanjikan petugas?",
+        engine,
+        retriever=FakeRetriever(["KB01-p1-s04"]),
+        threshold=None,
+    )
+    assert result.escalation_by_rule and "KB_02 §7" in result.escalate_to
+    assert (result.status, result.review_reason) == ("needs_review", "partial")  # aturan tidak mengubah status
+
+
+def test_pipeline_keeps_escalation_written_by_llm():
+    engine = FakeEngine([llm(status="not_in_sop", answer="Tidak diatur.", escalate_to="Pejabat berwenang")])
+    result = answer_question(
+        "Bagaimana prosedur refund lewat e-wallet?", engine, retriever=FakeRetriever(["KB01-p1-s04"]), threshold=None
+    )
+    assert (result.escalate_to, result.escalation_by_rule) == ("Pejabat berwenang", False)
+
+
+def test_pipeline_reports_stages():
+    stages: list[str] = []
+    bad = llm(claims=[claim("Respons awal P3 adalah 4 jam.", "KB01-p1-s04")], answer="4 jam.")
+    good = llm(claims=[claim("Respons awal P3 adalah 4 jam kerja.", "KB01-p1-s04")], answer="4 jam kerja.")
+    answer_question(
+        "Respons awal P3?",
+        FakeEngine([bad, good]),
+        retriever=FakeRetriever(["KB01-p1-s04"]),
+        threshold=None,
+        on_stage=stages.append,
+    )
+    assert stages == ["retrieval", "llm", "repair"]
 
 
 # --- Penentuan status ---

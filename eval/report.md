@@ -1,29 +1,29 @@
 # Laporan Evaluasi
 
-Di-generate oleh `sop eval` pada 2026-10-27T07:02:24. Golden set: 21 pertanyaan (`eval/golden.yaml`). Hasil mentah per konfigurasi ada di `eval/results/`.
+Di-generate oleh `sop eval` pada 2026-10-27T08:25:55. Golden set: 21 pertanyaan (`eval/golden.yaml`). Hasil mentah per konfigurasi ada di `eval/results/`.
 
 ## Ringkasan metrik
 
 | Metrik | hybrid | dense (ablation) | full-context (baseline) |
 |---|---|---|---|
 | Lolos keseluruhan | 16/21 (76%) | 16/21 (76%) | 16/21 (76%) |
-| Akurasi status | 19/21 (90%) | 19/21 (90%) | 19/21 (90%) |
+| Akurasi status | 19/21 (90%) | 19/21 (90%) | 18/21 (86%) |
 | Ketepatan sitasi (in-scope) | 17/18 (94%) | 17/18 (94%) | 16/18 (89%) |
 | must_include terpenuhi | 16/18 (89%) | 16/18 (89%) | 16/18 (89%) |
 | Recall@5 retrieval (in-scope) | 1.00 | 1.00 | - |
 | MRR retrieval (in-scope) | 0.97 | 1.00 | - |
 | Recall konteks akhir (setelah glossary) | 1.00 | 1.00 | 1.00 |
 | Guard lolos percobaan pertama | 19/20 (95%) | 19/20 (95%) | 20/21 (95%) |
-| Guard gagal setelah perbaikan | 0 | 0 | 0 |
+| Guard gagal setelah perbaikan | 0 | 0 | 1 |
 | Out-of-scope ditolak threshold | 1/3 (33%) | 1/3 (33%) | 0/3 (0%) |
 | In-scope salah abstain | 0 | 0 | 0 |
-| Latensi total p50 / p95 | 6.1 / 11.4 dtk | 6.1 / 11.5 dtk | 5.8 / 11.8 dtk |
-| Muat model (sekali) | 7.0 dtk | 7.5 dtk | 4.0 dtk |
+| Latensi total p50 / p95 | 6.1 / 10.2 dtk | 6.1 / 11.5 dtk | 5.9 / 11.9 dtk |
+| Muat model (sekali) | 4.9 dtk | 7.8 dtk | 3.9 dtk |
 | Engine | ollama:qwen2.5:7b | ollama:qwen2.5:7b | ollama:qwen2.5:7b |
 
 ## Ekstraksi
 
-- pytest `tests/test_extract.py`: 35 passed in 3.05s
+- pytest `tests/test_extract.py`: 35 passed in 3.11s
 - Jumlah chunk: 32
 - CER OCR KB_01 terhadap transkripsi manual: 0.18%
 - CER OCR KB_04 terhadap transkripsi manual: 0.11%
@@ -74,7 +74,7 @@ Di-generate oleh `sop eval` pada 2026-10-27T07:02:24. Golden set: 21 pertanyaan 
 | q07 | lolos | lolos | lolos |
 | q08 | lolos | lolos | lolos |
 | q09 | gagal (answered) | gagal (answered) | gagal (answered) |
-| q10 | lolos | lolos | gagal (needs_review/ambiguous) |
+| q10 | lolos | lolos | gagal (needs_review/guard_failed) |
 | q11 | lolos | lolos | lolos |
 | q12 | gagal (answered) | gagal (answered) | gagal (answered) |
 | q13 | lolos | lolos | lolos |
@@ -133,7 +133,7 @@ Status: `answered`
 
 Status: `answered`
 
-> Petugas mencatat tiket aktif, pekerjaan tertunda, hambatan, PIC, dan tenggat pembaruan saat serah terima shift.
+> Pada saat serah terima shift, petugas mencatat tiket aktif, pekerjaan tertunda, hambatan, PIC, dan tenggat pembaruan.
 
 - KB_03 Panduan Operasional Layanan, hal. 1, §2 Serah Terima Shift
 
@@ -186,7 +186,7 @@ Status: `needs_review/ambiguous`
 
 Status: `answered`
 
-> Keluhan berulang tidak otomatis menjadi P1; penentuan prioritas berdasarkan dampak aktual.
+> Keluhan berulang tidak otomatis menjadi insiden P1; penentuan prioritas berdasarkan dampak aktual.
 
 - KB_02 Pengelolaan Keluhan Pelanggan, hal. 1, §6 Keluhan Berulang
 
@@ -204,6 +204,8 @@ Status: `answered`
 
 > Petugas tidak boleh menjanjikan nominal kompensasi sebelum ada persetujuan pejabat berwenang.
 
+Eskalasi ke: Pejabat berwenang; jangan menjanjikan apa pun sebelum ada persetujuannya (KB_02 §7)
+
 - KB_02 Pengelolaan Keluhan Pelanggan, hal. 1, §7 Kompensasi
 
 ### q15: Siapa yang menilai dampak kebocoran data?
@@ -212,6 +214,8 @@ Status: `answered`
 
 > Penilaian dampak kebocoran data dilakukan oleh pihak yang berwenang.
 
+Eskalasi ke: Kanal keamanan, penilaian dampak oleh pihak yang berwenang; informasikan koordinator layanan (KB_04 §6, KB_01 §8)
+
 - KB_04 Eskalasi dan Penanganan Insiden, hal. 1, §6 Penanganan Keamanan
 
 ### q16: Bagaimana prosedur refund lewat e-wallet?
@@ -219,6 +223,8 @@ Status: `answered`
 Status: `not_in_sop`
 
 > Petugas tidak boleh menjanjikan pengembalian dana melalui e-wallet sebelum ada persetujuan pejabat berwenang.
+
+Eskalasi ke: Pejabat berwenang; jangan menjanjikan apa pun sebelum ada persetujuannya (KB_02 §7)
 
 - KB_02 Pengelolaan Keluhan Pelanggan, hal. 1, §7 Kompensasi
 

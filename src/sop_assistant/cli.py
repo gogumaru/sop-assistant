@@ -82,17 +82,11 @@ def ask(
     """Tanya SOP. Status tampil di baris pertama, sumber di bawah jawaban."""
     import httpx
 
-    from sop_assistant.answer import REASON_TEXT, STATUS_LABEL, answer_question
-    from sop_assistant.embedding import get_embedder
-    from sop_assistant.engines import get_engine
+    from sop_assistant.session import Assistant
 
-    start = time.perf_counter()
-    # Muat + pemanasan (inferensi pertama torch lambat) dipisah agar latensi menjawab tidak tercampur.
-    get_embedder().encode(["pemanasan"], return_dense=True, return_sparse=True)
-    load_s = time.perf_counter() - start
-
+    assistant = Assistant()
     try:
-        result = answer_question(question, get_engine(), mode=mode)
+        result = assistant.ask(question, mode=mode)
     except httpx.HTTPError as exc:
         console.print(f"[red]LLM tidak bisa dihubungi ({settings.llm_engine}): {escape(str(exc))}[/]")
         raise typer.Exit(1) from exc
@@ -100,6 +94,76 @@ def ask(
     if as_json:
         print(json.dumps(asdict(result), ensure_ascii=False, indent=2))
         return
+    render_result(result, load_s=assistant.load_s)
+
+
+STAGE_TEXT = {
+    "retrieval": "Mencari di SOP...",
+    "llm": "Menyusun jawaban...",
+    "repair": "Jawaban ditolak pemeriksa sumber, meminta perbaikan...",
+}
+CHAT_HELP = """\
+Perintah:
+  /mode hybrid|dense   ganti mode retrieval
+  /json                hasil lengkap pertanyaan terakhir
+  /bantuan             tampilkan bantuan ini
+  /keluar              berhenti (atau Ctrl+D)"""
+
+
+@app.command()
+def chat(mode: Mode = typer.Option(Mode.hybrid, help="hybrid atau dense (ablation).")) -> None:
+    """Mode interaktif: model dimuat sekali, lalu tanya berulang kali tanpa menunggu muat ulang."""
+    import httpx
+
+    from sop_assistant.session import Assistant
+
+    with console.status("Memuat model..."):
+        assistant = Assistant()
+    console.print(f"Siap dalam {assistant.load_s:.1f} dtk. Ketik pertanyaan, /bantuan untuk perintah.\n")
+
+    while True:
+        try:
+            line = console.input("[bold]sop>[/] ").strip()
+        except (EOFError, KeyboardInterrupt):
+            console.print()
+            break
+        if not line:
+            continue
+
+        if line.startswith("/"):
+            command, _, arg = line[1:].partition(" ")
+            if command in {"keluar", "exit", "quit"}:
+                break
+            if command == "mode":
+                try:
+                    mode = Mode(arg.strip())
+                    console.print(f"Mode retrieval: {mode.value}")
+                except ValueError:
+                    console.print("Mode harus hybrid atau dense.")
+            elif command == "json":
+                if assistant.history:
+                    print(json.dumps(asdict(assistant.history[-1]), ensure_ascii=False, indent=2))
+                else:
+                    console.print("Belum ada pertanyaan.")
+            else:
+                console.print(CHAT_HELP)
+            continue
+
+        try:
+            with console.status(STAGE_TEXT["retrieval"]) as status:
+                result = assistant.ask(line, mode=mode, on_stage=lambda s: status.update(STAGE_TEXT[s]))
+        except httpx.HTTPError as exc:
+            console.print(f"[red]LLM tidak bisa dihubungi ({settings.llm_engine}): {escape(str(exc))}[/]")
+            continue
+        except KeyboardInterrupt:
+            console.print("Dibatalkan.")
+            continue
+        render_result(result)
+        console.print()
+
+
+def render_result(result, load_s: float | None = None) -> None:
+    from sop_assistant.answer import REASON_TEXT, STATUS_LABEL
 
     reason = REASON_TEXT.get(result.review_reason or "", "")
     console.print(f"[{STATUS_STYLE[result.status]}] {STATUS_LABEL[result.status]} [/] {escape(reason)}")
@@ -110,7 +174,8 @@ def ask(
     if result.missing:
         console.print(f"\n[bold]Tidak diatur SOP:[/] {escape(result.missing)}")
     if result.escalate_to:
-        console.print(f"[bold]Eskalasi ke:[/] {escape(result.escalate_to)}")
+        by_rule = " [dim](diisi aturan eskalasi)[/]" if result.escalation_by_rule else ""
+        console.print(f"[bold]Eskalasi ke:[/] {escape(result.escalate_to)}{by_rule}")
 
     if result.sources:
         console.print("\n[bold]Sumber[/]")
@@ -122,7 +187,9 @@ def ask(
     parts = [f"dense top-1 {result.dense_top1:.3f}", f"retrieval {t.get('retrieval', 0):.0f} ms"]
     if "llm" in t:
         parts.append(f"LLM {t['llm']:.0f} ms" + (" (1x perbaikan)" if result.repaired else ""))
-    parts += [f"total {t.get('total', 0):.0f} ms", f"muat model {load_s:.1f} dtk"]
+    parts.append(f"total {t.get('total', 0):.0f} ms")
+    if load_s is not None:
+        parts.append(f"muat model {load_s:.1f} dtk")
     if result.abstained:
         parts.append("abstain sebelum LLM")
     if result.pii_masked:

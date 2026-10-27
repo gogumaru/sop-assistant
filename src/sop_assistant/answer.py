@@ -24,6 +24,7 @@ from sop_assistant.guards import (
     Scale,
     check_citations,
     detect_ambiguity,
+    detect_escalation,
     mask_pii,
     should_abstain,
     uncovered_scales,
@@ -32,6 +33,7 @@ from sop_assistant.prompts import SYSTEM_PROMPT, answer_schema, build_repair_pro
 from sop_assistant.retrieve import Hit, Mode, RetrievalResult, retrieve
 
 Retriever = Callable[..., RetrievalResult]
+StageCallback = Callable[[str], None]  # dipanggil dengan "retrieval", "llm", atau "repair"
 
 SNIPPET_CHARS = 200
 AMBIGUITY_EXTRA_K = 2  # chunk tambahan per skala saat istilah ambigu terdeteksi
@@ -78,6 +80,7 @@ class AnswerResult:
     sources: list[Source] = field(default_factory=list)
     missing: str | None = None
     escalate_to: str | None = None
+    escalation_by_rule: bool = False  # True jika escalate_to diisi aturan karena LLM mengosongkannya
     ambiguity: Ambiguity | None = None
     dense_top1: float = 0.0
     abstained: bool = False
@@ -169,11 +172,14 @@ def answer_question(
     mode: Mode = Mode.hybrid,
     k: int | None = None,
     threshold: float | None = settings.abstain_threshold,
+    on_stage: StageCallback | None = None,
 ) -> AnswerResult:
+    stage = on_stage or (lambda _: None)
     start = time.perf_counter()
     timings: dict[str, float] = {}
     masked, n_masked = mask_pii(question)
 
+    stage("retrieval")
     t = time.perf_counter()
     retrieval = retriever(masked, k=k, mode=mode)
     timings["retrieval"] = (time.perf_counter() - t) * 1000
@@ -205,11 +211,13 @@ def answer_question(
     schema = answer_schema(list(context))
     user = build_user_prompt(masked, hits, ambiguity)
 
+    stage("llm")
     t = time.perf_counter()
     output, guard = _generate(engine, user, schema, context_text)
     gaps = _scale_gaps(output, doc_of, ambiguity)
     repair_reasons: list[str] = []
     if not guard.ok or gaps:
+        stage("repair")
         repair_reasons = guard.errors + [_gap_error(ambiguity, scale) for scale in gaps]
         output, guard = _generate(engine, build_repair_prompt(user, output, repair_reasons), schema, context_text)
         gaps = _scale_gaps(output, doc_of, ambiguity)
@@ -226,6 +234,13 @@ def answer_question(
         claims = guard.valid_claims
         answer_text = " ".join(c["text"] for c in claims) or GUARD_FALLBACK
 
+    # Manusia memegang keputusan: untuk topik yang pihak berwenangnya disebut SOP, arahan
+    # eskalasi tidak boleh hilang hanya karena model kecil lupa mengisinya.
+    escalate_to = _none_if_empty(output.get("escalate_to"))
+    escalation_by_rule = False
+    if not escalate_to and (rule := detect_escalation(masked)):
+        escalate_to, escalation_by_rule = rule.text(), True
+
     timings["total"] = (time.perf_counter() - start) * 1000
     return AnswerResult(
         question=masked,
@@ -235,7 +250,8 @@ def answer_question(
         claims=claims,
         sources=build_sources(claims, context),
         missing=_none_if_empty(output.get("missing")),
-        escalate_to=_none_if_empty(output.get("escalate_to")),
+        escalate_to=escalate_to,
+        escalation_by_rule=escalation_by_rule,
         ambiguity=ambiguity,
         dense_top1=retrieval.dense_top1,
         retrieved_ids=list(context),

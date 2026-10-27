@@ -55,6 +55,7 @@ make test         # unit test + integrasi (integrasi di-skip jika Qdrant mati)
 
 make ask Q="Kalau pelanggan tidak merespons, kapan tiket boleh ditutup?"
 uv run sop ask "..." --json        # hasil lengkap: klaim, hasil guard, alasan perbaikan
+make chat         # mode interaktif: model dimuat sekali, tahap proses tampil saat menjawab
 
 make calibrate    # pilih threshold abstain -> eval/calibration.json
 make eval         # evaluasi hybrid -> eval/results/hybrid.json + eval/report.md
@@ -112,9 +113,10 @@ Hanya kotak "LLM" yang memakai model generatif. Semua keputusan lain (abstain, a
 |---|---|
 | `extract.py` | text layer atau OCR, urutan baca, cleanup, potong per section |
 | `index.py`, `retrieve.py` | koleksi Qdrant hybrid, upsert idempoten, RRF, dense top-1 untuk abstain |
-| `guards.py` | masking PII, abstain, glossary, citation guard, cakupan skala |
+| `guards.py` | masking PII, abstain, glossary, citation guard (angka, satuan, pasangan angka-level), cakupan skala, aturan eskalasi |
 | `engines.py` | `LLMEngine` protocol: `OllamaEngine`, `OpenAICompatEngine`, `FakeEngine` |
-| `prompts.py`, `answer.py` | prompt, skema output, pipeline, penentuan status |
+| `prompts.py`, `answer.py` | prompt, skema output, pipeline, penentuan status, kabar tahap proses |
+| `session.py` | `Assistant`: model dimuat sekali, dipakai `sop ask` dan `sop chat` |
 | `evaluation.py` | metrik per tahap, baseline, laporan |
 
 ## Keputusan teknis
@@ -127,7 +129,7 @@ Hanya kotak "LLM" yang memakai model generatif. Semua keputusan lain (abstain, a
 | Golden dataset + eval per tahap, chunking berbasis struktur | Gani.ai (chunking per pasal, bge-m3) | Chunk per section bernomor. Eval terpisah untuk ekstraksi (CER), retrieval (recall@5, MRR), dan jawaban. |
 | Deterministik dulu, LLM untuk sintesis | Sena (model kecil lemah dalam memilih dan menalar) | Abstain, ambiguitas, citation guard, cakupan skala, dan status adalah aturan. LLM hanya menyusun klaim dan jawaban. |
 | Pluggable engine | Malokit (`AnalysisEngine` protocol) | `LLMEngine` protocol dengan tiga implementasi. Pipeline dites dengan `FakeEngine` tanpa LLM. |
-| Manusia memegang keputusan | Tata | Untuk kompensasi, keamanan, dan otorisasi, prompt meminta arahan ke pihak yang disebut SOP (`escalate_to`). Belum dipatuhi model di q14/q15, lihat Evaluasi. |
+| Manusia memegang keputusan | Tata | Prompt meminta arahan ke pihak yang disebut SOP (`escalate_to`). Model sering mengosongkannya (q14, q15, q16), jadi untuk kompensasi dan kebocoran data kode mengisinya dari [`escalation.yaml`](escalation.yaml) dan menandainya "diisi aturan eskalasi". |
 | Honest representation | AI-Moris | Bagian "Sudah dibangun vs rencana", dan kegagalan eval dilaporkan apa adanya. |
 | User-first | Malokit, Gani.ai | Status di baris pertama, sumber dengan cuplikan verbatim, latensi model dan latensi menjawab dipisah. |
 
@@ -154,6 +156,8 @@ Hanya kotak "LLM" yang memakai model generatif. Semua keputusan lain (abstain, a
 **Menjawab**
 - **Skema JSON membatasi `chunk_ids` ke daftar chunk di konteks** (enum), sehingga Ollama tidak bisa mengarang ID. Urutan field: klaim bersumber ditulis dulu, status diputuskan terakhir.
 - **Citation guard membedakan satuan.** "4 jam" tidak lolos jika sumbernya "4 jam kerja"; "dua hari kerja" = "2 hari kerja". Angka di teks jawaban juga dicek, bukan hanya di klaim, karena teks itulah yang dibaca petugas.
+- **Citation guard memeriksa pasangan angka dan level.** Setiap angka di sumber dicatat milik level yang mendahuluinya ("P1: 15 menit; P2: 1 jam" -> 15 menit milik P1; "Untuk SEV1 dan SEV2, ... lima hari kerja" -> milik keduanya). Klaim "SEV1 setiap 30 menit" ditolak karena di KB_03 §4 30 menit milik P1. Sengaja konservatif: kalimat bernegasi dilewati (koreksi premis "P3 tidak perlu 4 jam kerja" sah) dan angka yang berlaku umum tidak diperiksa.
+- **Eskalasi diisi aturan, status tidak diubah.** Menurunkan status ke `partial` untuk semua topik sensitif akan membuat q14/q15 lolos, tetapi salah untuk pertanyaan yang memang terjawab penuh (q08 tentang OTP). Itu menyetel aturan demi skor, jadi tidak dilakukan.
 - **Cakupan skala untuk istilah ambigu.** Jika glossary mendeteksi "gangguan kritis", harus ada klaim yang menyebut `P1` dengan sitasi dokumen skala P, dan klaim yang menyebut `SEV1` dengan sitasi KB_04. Versi pertama hanya mengecek dokumen, dan model memenuhinya dengan menyitasi KB_03 §1 (yang kebetulan memuat "gangguan kritis") tanpa menjawab P1.
 - **Urutan status:** guard gagal > `not_in_sop` dari LLM > ambiguitas dari glossary > status dari LLM. Penyimpangan dari brief: `not_in_sop` dipertahankan meski ada istilah ambigu, karena "berapa tunjangan saat gangguan kritis?" tetap di luar SOP.
 - **Glossary dicocokkan per frasa.** "sedang" juga berarti *currently* ("tiket yang sedang diproses") dan "tinggi" adalah kata umum; keduanya punya test negatif.
@@ -200,18 +204,21 @@ Golden set 21 pertanyaan ([`eval/golden.yaml`](eval/golden.yaml)): faktual, peng
 
 ### Ringkasan metrik
 
+Angka setelah perbaikan guard (pasangan angka-level dan eskalasi); perbandingan dengan sebelum perbaikan ada di bawah.
+
 | Metrik | hybrid | dense (ablation) | full-context (baseline) |
 |---|---|---|---|
 | Lolos keseluruhan | 16/21 (76%) | 16/21 (76%) | 16/21 (76%) |
-| Akurasi status | 19/21 (90%) | 19/21 (90%) | 19/21 (90%) |
+| Akurasi status | 19/21 (90%) | 19/21 (90%) | 18/21 (86%) |
 | Ketepatan sitasi (in-scope) | 17/18 (94%) | 17/18 (94%) | 16/18 (89%) |
 | `must_include` terpenuhi | 16/18 (89%) | 16/18 (89%) | 16/18 (89%) |
 | Recall@5 retrieval | 1.00 | 1.00 | - |
 | MRR retrieval | 0.97 | 1.00 | - |
 | Guard lolos percobaan pertama | 19/20 (95%) | 19/20 (95%) | 20/21 (95%) |
+| Guard gagal setelah perbaikan | 0 | 0 | 1 (q10) |
 | Out-of-scope ditolak threshold | 1/3 | 1/3 | 0/3 (tidak ada threshold) |
 | In-scope salah abstain | 0 | 0 | 0 |
-| Latensi total p50 / p95 | 6.1 / 11.4 dtk | 6.1 / 11.5 dtk | 5.8 / 11.8 dtk |
+| Latensi total p50 / p95 | 6.1 / 10.2 dtk | 6.1 / 11.5 dtk | 5.9 / 11.9 dtk |
 
 Ekstraksi: 32 chunk, section 1-8 di keempat dokumen, CER OCR 0.18% (KB_01) dan 0.11% (KB_04) terhadap transkripsi manual. Threshold abstain 0.460 ([`eval/calibration.json`](eval/calibration.json)).
 
@@ -220,7 +227,7 @@ Ekstraksi: 32 chunk, section 1-8 di keempat dokumen, CER OCR 0.18% (KB_01) dan 0
 - **Ketiga pertanyaan di luar cakupan dijawab `not_in_sop`**, tanpa ada pertanyaan in-scope yang ikut ditolak. q18 ditolak threshold sebelum LLM dipanggil; q16 dan q17 ditolak lapisan LLM.
 - **Istilah ambigu** (q10, q11) berstatus `needs_review/ambiguous`, dengan kedua skala disebut. Di q10 status itu datang dari glossary, dan cakupan skala memaksa satu kali perbaikan karena jawaban pertama hanya membahas SEV1.
 - **Pengecualian dan premis salah** (q07, q13), **bahasa informal** (q19, q20), dan **prompt injection** (q21) terjawab benar dengan sumber yang tepat.
-- **Tidak ada jawaban yang gagal guard setelah perbaikan.**
+- **Di mode hybrid tidak ada jawaban yang gagal guard setelah perbaikan**, dan cek pasangan angka-level tidak menolak satu pun jawaban yang benar.
 
 ### Yang gagal atau kurang akurat
 
@@ -229,7 +236,7 @@ Ekstraksi: 32 chunk, section 1-8 di keempat dokumen, CER OCR 0.18% (KB_01) dan 0
 | q04 | Jawaban menghilangkan batasan "untuk SEV1 dan SEV2" | Syarat berlaku hilang |
 | q09 | Hanya menyitasi KB_04 §7; KB_01 §7 (aturan penutupan) ada di peringkat 2 tetapi tidak dipakai | Multi-hop tidak lengkap |
 | q12 | Tidak menyebut bahwa keluhan berulang ditinjau koordinator | Jawaban tidak lengkap |
-| q14, q15 | Model menjawab `answered`, seharusnya `partial`; `escalate_to` kosong padahal topiknya kompensasi dan kebocoran data | Kalibrasi status, eskalasi tidak dipatuhi |
+| q14, q15 | Model menjawab `answered`, seharusnya `partial`. `escalate_to` dikosongkan model; sekarang diisi aturan eskalasi, tetapi status tetap salah | Kalibrasi status |
 
 Masalah yang **lolos metrik** tetapi tetap salah:
 
@@ -241,21 +248,35 @@ Masalah yang **lolos metrik** tetapi tetap salah:
 ### Temuan dari perbandingan
 
 1. **Hybrid tidak lebih baik dari dense di korpus ini.** Keduanya recall@5 = 1.00; dense malah sedikit lebih baik di MRR (q05). Dengan 32 chunk, retrieval belum benar-benar diuji; manfaat sparse untuk token persis belum terukur.
-2. **Baseline full-context sama skornya, tetapi membuat kesalahan yang lebih berbahaya.** Di q10 baseline menjawab "SEV1 diperbarui setiap **30 menit**" (benar: 20 menit). Guard meloloskannya karena angka 30 menit memang ada di chunk yang disitasi (KB_03 §4, untuk P1). Hanya `must_include` di eval yang menangkapnya. Retrieval yang memberi konteks lebih sempit membuat model 7B lebih sedikit tertukar; full-context juga tidak bisa menolak pertanyaan sebelum LLM.
+2. **Baseline full-context sama skornya, tetapi membuat kesalahan yang lebih berbahaya.** Di q10 baseline menjawab "SEV1 diperbarui setiap **30 menit**" (benar: 20 menit). Guard versi pertama meloloskannya karena angka 30 menit memang ada di chunk yang disitasi (KB_03 §4, untuk P1); hanya `must_include` di eval yang menangkapnya. Retrieval yang memberi konteks lebih sempit membuat model 7B lebih sedikit tertukar; full-context juga tidak bisa menolak pertanyaan sebelum LLM.
 3. **Threshold saja tidak cukup.** q19 (in-scope, informal "brp lama sev2 hrs dieskalasi") skornya 0.502, lebih rendah dari q16 (0.514) dan q17 (0.508) yang di luar cakupan. Lapisan kedua (LLM + guard) wajib ada.
-4. **Guard tidak menangkap satu pun kesalahan nyata di run ini.** Kesalahan yang muncul berupa hal yang dihilangkan, angka yang dipasangkan ke level yang salah, dan kata yang ditambahkan; guard saat ini hanya mengecek angka dan satuan.
+4. **Di run pertama guard tidak menangkap satu pun kesalahan nyata.** Kesalahan yang muncul berupa hal yang dihilangkan, angka yang dipasangkan ke level yang salah, dan kata yang ditambahkan, sedangkan guard hanya mengecek angka dan satuan. Ini yang mendorong perbaikan di bawah.
+
+### Sebelum vs sesudah perbaikan
+
+Dua perbaikan diambil dari temuan di atas: cek pasangan angka-level (temuan 2) dan eskalasi deterministik (q14/q15). LLM berjalan dengan `temperature=0, seed=0`; di full-context q10 sitasinya identik dengan run sebelumnya, jadi perbedaan hasil datang dari guard, bukan dari model.
+
+| Kasus | Sebelum | Sesudah |
+|---|---|---|
+| Full-context q10 | "SEV1 diperbarui setiap 30 menit" (salah) tampil ke pengguna sebagai `needs_review/ambiguous` | Klaim itu ditolak guard; status `needs_review/guard_failed`, hanya klaim terverifikasi yang ditampilkan |
+| q14, q15, q16 | `escalate_to` kosong | Diisi dari SOP (KB_02 §7; KB_04 §6 dan KB_01 §8), ditandai "diisi aturan eskalasi" |
+| Hybrid, semua pertanyaan | 16/21 lolos | 16/21 lolos; tidak ada regresi, koreksi premis bernegasi (q13) tidak ikut ditolak |
+| Akurasi status full-context | 19/21 | 18/21 |
+
+Baris terakhir disengaja: metrik turun karena jawaban yang salah sekarang berstatus `guard_failed`, bukan `ambiguous`. Untuk persona ini, jawaban yang ditandai "perlu ditinjau" lebih baik daripada angka yang salah dengan status yang tampak wajar.
 
 ## Keterbatasan
 
 - **Model lokal kecil (qwen2.5:7b).** Instruksi seperti "jawab per skala", "isi `escalate_to`", dan "status partial" tidak selalu dipatuhi. Sebagian ditegakkan kode (cakupan skala), sebagian belum (eskalasi, partial).
 - **Threshold dari 21 pertanyaan**, set yang sama dengan evaluasi. Berisiko overfit; perlu kalibrasi ulang dengan pertanyaan nyata.
 - **Glossary manual.** Istilah di luar daftar (misalnya "urgent", "darurat sekali") tidak terdeteksi sebagai ambigu.
-- **Citation guard hanya memeriksa angka dan satuan ada di sumber**, bukan bahwa angka itu milik level yang benar, dan tidak memeriksa entitas lain (e-wallet, "segera").
+- **Citation guard memeriksa angka, satuan, dan pasangan angka-level, tetapi tidak entitas lain** (e-wallet, "segera", "menggunakan"). Pasangan angka-level hanya mengenali level yang ditulis *sebelum* angka di sumber, melewati kalimat bernegasi, dan tidak memeriksa angka yang berlaku umum; "kecuali tiket P1" setelah angka tidak tertangkap.
+- **Aturan eskalasi manual** ([`escalation.yaml`](escalation.yaml)), hanya dua topik yang pihak berwenangnya disebut eksplisit di SOP.
 - **Korpus kecil** (4 dokumen satu halaman, 32 chunk). RAG belum diuji di skala besar, dokumen multi-halaman, atau section yang melintasi halaman (kode mencatat halaman heading saja).
 - **OCR bergantung pada gambar sekitar 122 DPI.** `;` terbaca `:` di tiga tempat (misalnya KB_01 §4 "P1: 15 menit: P2: 1 jam"); tidak mengubah angka, tetapi struktur kalimat jadi rancu. Tidak dikoreksi karena tidak punya format pasti.
 - **Tidak ada versioning SOP.** Jika SOP berubah, ingest menimpa chunk lama; tidak ada riwayat atau tanggal berlaku.
 - **Determinisme.** `temperature=0` dan `seed=0`, tetapi output bisa sedikit berbeda antar versi Ollama atau model.
-- **CLI memuat model di setiap perintah** (sekitar 7 detik). Eval dan demo memuat sekali.
+- **`sop ask` memuat model di setiap perintah** (sekitar 5-8 detik). `sop chat`, eval, dan demo memuat sekali.
 - **Golden set disusun oleh pembuat sistem**, jadi bias ke kasus yang sudah terpikirkan.
 
 ## Sudah dibangun vs rencana
@@ -264,16 +285,18 @@ Masalah yang **lolos metrik** tetapi tetap salah:
 |---|---|
 | Ekstraksi text layer + OCR Tesseract, urutan baca pita + kolom, chunk per section, 35 test ekstraksi | Pembanding ekstraksi (Apple Vision, MinerU) dengan test CER dan token kritis yang sama |
 | Qdrant hybrid dense + sparse bge-m3, RRF, ingest idempoten, mode embedded tanpa Docker | Uji retrieval di korpus besar, reranker |
-| Masking PII, abstain dua lapis, glossary P vs SEV, citation guard, cakupan skala, satu kali perbaikan | Cek pasangan angka-level, cek entitas, eskalasi deterministik |
+| Masking PII, abstain dua lapis, glossary P vs SEV, citation guard (angka, satuan, pasangan angka-level), cakupan skala, eskalasi deterministik, satu kali perbaikan | Cek entitas, cek syarat berlaku yang hilang, kalibrasi status `partial` |
 | `OllamaEngine` (default), `OpenAICompatEngine` (minimal), `FakeEngine` | Perbandingan model (`qwen3:8b` sudah terpasang) |
-| CLI `ingest`, `search`, `ask`, `eval`; `make demo` | `sop chat` (model dimuat sekali per sesi), web UI demo |
+| CLI `ingest`, `search`, `ask`, `chat`, `eval`; `make demo`; kelas `Assistant` dan kabar tahap proses | Web UI demo di atas `Assistant` (halaman PDF dengan section tersorot, tahap proses lewat SSE) |
 | Golden set 21 pertanyaan, kalibrasi, eval per tahap, ablation dense, baseline full-context | Golden set dari pertanyaan petugas nyata, kalibrasi ulang |
 
 ## Prioritas perbaikan
 
-1. **Cek pasangan angka dan level.** Token level di klaim (misalnya SEV1) harus muncul di kalimat sumber yang sama dengan angkanya. Menangkap kesalahan full-context q10 ("SEV1 setiap 30 menit").
-2. **Eskalasi deterministik.** Jika topik pertanyaan kompensasi, pengembalian dana, kebocoran data, atau otorisasi dan `escalate_to` kosong, kode mengisi pihak dari SOP atau menurunkan status ke `needs_review`. Menangani q14 dan q15, dan menegakkan prinsip "manusia memegang keputusan".
-3. **Cek kata penting.** Kata dari pertanyaan yang tidak ada di chunk sumber tidak boleh muncul di klaim (q16 "e-wallet", q11 "segera", demo PII "menggunakan").
-4. **Sumber untuk `not_in_sop`** ditampilkan sebagai "aturan terkait" atau disembunyikan (q17).
-5. **Golden set lebih besar dari pertanyaan nyata**, kalibrasi ulang threshold, dan perbandingan model lewat `LLMEngine`.
-6. **`sop chat`** agar petugas tidak menunggu model dimuat di setiap pertanyaan.
+Sudah dikerjakan dari daftar awal: cek pasangan angka-level, eskalasi deterministik, dan `sop chat` (lihat [Sebelum vs sesudah](#sebelum-vs-sesudah-perbaikan)). Sisanya, berurutan:
+
+1. **Cek kata penting.** Kata dari pertanyaan yang tidak ada di chunk sumber tidak boleh muncul di klaim (q16 "e-wallet", q11 "segera", demo PII "menggunakan").
+2. **Cek syarat berlaku yang hilang.** Perluasan dari pasangan angka-level: jika angka di sumber milik level tertentu (lima hari kerja milik SEV1 dan SEV2) tetapi jawaban menyebut angka itu tanpa levelnya, minta perbaikan. Menangani q04.
+3. **Kalibrasi status `partial`** (q14, q15). Coba model lain lewat `LLMEngine` (`qwen3:8b` sudah terpasang) sebelum menambah aturan, karena aturan berbasis topik terbukti salah untuk q08.
+4. **Kelengkapan multi-hop** (q09): jika jawaban merujuk aturan lain ("aturan penutupan tiket") dan chunk aturan itu ada di konteks, wajib disitasi.
+5. **Sumber untuk `not_in_sop`** ditampilkan sebagai "aturan terkait" atau disembunyikan (q17).
+6. **Golden set lebih besar dari pertanyaan nyata** dan kalibrasi ulang threshold.
