@@ -44,6 +44,15 @@ GUARD_FALLBACK = (
 )
 SCALE_GAP_NOTE = "Belum terjawab untuk {name} ({docs}); periksa SOP tersebut sebelum bertindak."
 
+# Teks untuk pengguna, dipakai CLI dan demo.
+STATUS_LABEL = {"answered": "TERJAWAB", "needs_review": "PERLU DITINJAU", "not_in_sop": "TIDAK ADA DI SOP"}
+REASON_TEXT = {
+    "ambiguous": "Istilah di pertanyaan bisa merujuk ke dua skala berbeda. Pastikan klasifikasinya sebelum bertindak.",
+    "partial": "Hanya sebagian pertanyaan yang diatur SOP.",
+    "conflict": "Ada aturan SOP yang bertentangan. Konfirmasikan ke koordinator.",
+    "guard_failed": "Sebagian jawaban tidak lolos pemeriksaan sumber; hanya klaim terverifikasi yang ditampilkan.",
+}
+
 
 @dataclass(frozen=True)
 class Source:

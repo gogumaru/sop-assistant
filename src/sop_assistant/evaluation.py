@@ -121,27 +121,26 @@ def full_context_retriever(payloads: list[dict]):
     return retriever
 
 
-def evaluate_item(item: GoldenItem, engine, config: str, retriever, mode: Mode, threshold: float | None) -> dict:
-    from sop_assistant.answer import answer_question
+@dataclass(frozen=True)
+class Verdict:
+    status_ok: bool
+    citation_ok: bool | None  # None = tidak berlaku (out-of-scope)
+    missing: list[str]
+    forbidden: list[str]
+    notes: list[str]
 
-    recall = rr = None
-    ranked: list[str] = []
-    if config != "full_context" and item.in_scope:
-        masked, _ = mask_pii(item.question)
-        ranked = [h.chunk_id for h in retrieve(masked, k=settings.retrieve_k, mode=mode).hits]
-        recall, rr = retrieval_metrics(ranked, item.expected_chunks)
+    @property
+    def passed(self) -> bool:
+        return self.status_ok and self.citation_ok is not False and not self.missing and not self.forbidden
 
-    result = answer_question(item.question, engine, retriever=retriever, mode=mode, threshold=threshold)
+
+def judge(item: GoldenItem, result) -> Verdict:
+    """Bandingkan AnswerResult dengan harapan golden. Dipakai eval dan demo."""
     cited = [s.chunk_id for s in result.sources]
     status_ok = result.status == item.expected_status and (
         item.expected_reason is None or result.review_reason == item.expected_reason
     )
     cite_ok = citation_ok(cited, item.expected_chunks, item.category) if item.expected_chunks else None
-    context_recall = (
-        sum(c in result.retrieved_ids for c in item.expected_chunks) / len(item.expected_chunks)
-        if item.expected_chunks
-        else None
-    )
     missing = missing_phrases(result.answer, item.must_include)
     forbidden = [p for p in item.must_not_include if not missing_phrases(result.answer, [p])]
 
@@ -160,6 +159,26 @@ def evaluate_item(item: GoldenItem, engine, config: str, retriever, mode: Mode, 
         notes.append("1x perbaikan")
     if result.scale_gaps:
         notes.append(f"skala tidak terjawab: {', '.join(result.scale_gaps)}")
+    return Verdict(status_ok=status_ok, citation_ok=cite_ok, missing=missing, forbidden=forbidden, notes=notes)
+
+
+def evaluate_item(item: GoldenItem, engine, config: str, retriever, mode: Mode, threshold: float | None) -> dict:
+    from sop_assistant.answer import answer_question
+
+    recall = rr = None
+    ranked: list[str] = []
+    if config != "full_context" and item.in_scope:
+        masked, _ = mask_pii(item.question)
+        ranked = [h.chunk_id for h in retrieve(masked, k=settings.retrieve_k, mode=mode).hits]
+        recall, rr = retrieval_metrics(ranked, item.expected_chunks)
+
+    result = answer_question(item.question, engine, retriever=retriever, mode=mode, threshold=threshold)
+    verdict = judge(item, result)
+    context_recall = (
+        sum(c in result.retrieved_ids for c in item.expected_chunks) / len(item.expected_chunks)
+        if item.expected_chunks
+        else None
+    )
 
     return {
         "id": item.id,
@@ -174,17 +193,17 @@ def evaluate_item(item: GoldenItem, engine, config: str, retriever, mode: Mode, 
         "answer": result.answer,
         "missing": result.missing,
         "escalate_to": result.escalate_to,
-        "cited": cited,
+        "cited": [s.chunk_id for s in result.sources],
         "sources": [s.label() for s in result.sources],
         "retrieved_top_k": ranked,
         "retrieval_recall": recall,
         "retrieval_rr": rr,
         "context_recall": context_recall,
-        "status_ok": status_ok,
-        "citation_ok": cite_ok,
-        "must_include_missing": missing,
-        "must_not_include_found": forbidden,
-        "passed": status_ok and cite_ok is not False and not missing and not forbidden,
+        "status_ok": verdict.status_ok,
+        "citation_ok": verdict.citation_ok,
+        "must_include_missing": verdict.missing,
+        "must_not_include_found": verdict.forbidden,
+        "passed": verdict.passed,
         "abstained": result.abstained,
         "repaired": result.repaired,
         "repair_reasons": result.repair_reasons,
@@ -192,7 +211,7 @@ def evaluate_item(item: GoldenItem, engine, config: str, retriever, mode: Mode, 
         "scale_gaps": result.scale_gaps,
         "dense_top1": result.dense_top1,
         "latency_ms": result.timings_ms,
-        "notes": notes,
+        "notes": verdict.notes,
     }
 
 

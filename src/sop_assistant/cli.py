@@ -70,17 +70,7 @@ def search(
     console.print(f"Latensi retrieval: {elapsed * 1000:.0f} ms (termasuk memuat model pada panggilan pertama)")
 
 
-STATUS_BADGE = {
-    "answered": "[bold white on green] TERJAWAB [/]",
-    "needs_review": "[bold black on yellow] PERLU DITINJAU [/]",
-    "not_in_sop": "[bold white on red] TIDAK ADA DI SOP [/]",
-}
-REASON_TEXT = {
-    "ambiguous": "Istilah di pertanyaan bisa merujuk ke dua skala berbeda. Pastikan klasifikasinya sebelum bertindak.",
-    "partial": "Hanya sebagian pertanyaan yang diatur SOP.",
-    "conflict": "Ada aturan SOP yang bertentangan. Konfirmasikan ke koordinator.",
-    "guard_failed": "Sebagian jawaban tidak lolos pemeriksaan sumber; hanya klaim terverifikasi yang ditampilkan.",
-}
+STATUS_STYLE = {"answered": "bold white on green", "needs_review": "bold black on yellow", "not_in_sop": "bold white on red"}
 
 
 @app.command()
@@ -92,7 +82,7 @@ def ask(
     """Tanya SOP. Status tampil di baris pertama, sumber di bawah jawaban."""
     import httpx
 
-    from sop_assistant.answer import answer_question
+    from sop_assistant.answer import REASON_TEXT, STATUS_LABEL, answer_question
     from sop_assistant.embedding import get_embedder
     from sop_assistant.engines import get_engine
 
@@ -112,7 +102,7 @@ def ask(
         return
 
     reason = REASON_TEXT.get(result.review_reason or "", "")
-    console.print(f"{STATUS_BADGE[result.status]} {escape(reason)}")
+    console.print(f"[{STATUS_STYLE[result.status]}] {STATUS_LABEL[result.status]} [/] {escape(reason)}")
     if result.ambiguity:
         options = " | ".join(f"{c.level} ({c.note})" for c in result.ambiguity.candidates)
         console.print(f"[yellow]Kemungkinan maksud \"{escape(result.ambiguity.term)}\": {escape(options)}[/]")
